@@ -78,6 +78,18 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  def test_legacy_allow_latest_casks_key_is_accepted_but_ignored
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "config.json")
+      write_json(path, { "allow_latest_casks" => ["homebrew/cask/old-app"] })
+
+      config = HomebrewAgeGate::Config.load("HOMEBREW_AGE_GATE_CONFIG" => path)
+
+      assert_equal 7, config.min_age_days
+      refute_includes config.values.keys, "allow_latest_casks"
+    end
+  end
+
   def test_name_set_accepts_canonical_and_core_short_names
     package = HomebrewAgeGate::Package.new(
       type: :formula,

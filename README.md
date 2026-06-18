@@ -2,7 +2,7 @@
 
 `homebrew-age-gate` is a PATH-level `brew` wrapper that delays `brew upgrade` until each outdated Homebrew package definition has been present in the tap git history for a configured minimum age.
 
-Default policy: upgrade only outdated formulae/casks whose Homebrew definition last changed at least 7 days ago.
+Default policy: upgrade only outdated formulae whose Homebrew definition last changed at least 7 days ago. Casks are only considered for explicit cask upgrade commands.
 
 ## Install Shape
 
@@ -18,6 +18,25 @@ The wrapper delegates non-upgrade commands to `/opt/homebrew/bin/brew` unchanged
 export HOMEBREW_AGE_GATE_REAL_BREW=/opt/homebrew/bin/brew
 ```
 
+For one shell session from the repo root:
+
+```sh
+export PATH="$(pwd)/bin:$PATH"
+```
+
+Verify that the wrapper is first on `PATH`:
+
+```sh
+command -v brew
+# /path/to/homebrew-age-gate/bin/brew
+```
+
+Verify that the wrapper still delegates to real Homebrew for non-upgrade commands:
+
+```sh
+brew --version
+```
+
 ## Config
 
 Create `$XDG_CONFIG_HOME/homebrew-age-gate/config.json` or `~/.config/homebrew-age-gate/config.json`:
@@ -26,13 +45,14 @@ Create `$XDG_CONFIG_HOME/homebrew-age-gate/config.json` or `~/.config/homebrew-a
 {
   "min_age_days": 7,
   "allow_auto_updates_casks": ["homebrew/cask/slack"],
-  "allow_latest_casks": [],
   "unsafe_allow_unknown_age": [],
   "unsafe_preserve_installed_dependents_check": false
 }
 ```
 
 Package identities are canonical names such as `homebrew/core/jq` and `homebrew/cask/google-chrome`. Short names for `homebrew/core` formulae and `homebrew/cask` casks are accepted for convenience, but reports print canonical names.
+
+Casks with `version: latest` are age-gated like any other package. No separate `latest` allowlist is needed.
 
 ## Local Ruby Environment
 
@@ -47,6 +67,12 @@ Bundler is configured in `.bundle/config` to install project gems into `vendor/b
 
 ```sh
 bundle install
+```
+
+If `which bundle` points at `/usr/bin/bundle` instead of an rbenv shim, your shell is not using rbenv for this repo yet. Either initialize rbenv in your shell or use the explicit form:
+
+```sh
+rbenv exec bundle install
 ```
 
 After that, run project commands through Bundler:
@@ -69,11 +95,98 @@ vendor/bundle/       # local installed gems, ignored by git
 ```sh
 brew upgrade
 brew upgrade jq
+brew upgrade --cask visual-studio-code
 homebrew-age-gate plan
 homebrew-age-gate doctor
 ```
 
-`brew update`, `brew outdated`, `brew info`, and every other non-upgrade command pass through to real Homebrew.
+Bare `brew upgrade` only discovers and upgrades formulae. Cask upgrades are left alone unless you explicitly invoke a cask upgrade path; if you prefer `brew cu`, that command passes through unchanged. `brew outdated` passes through to real Homebrew, then annotates human-readable output with age-gate version and age details. `brew update`, `brew info`, and every other non-upgrade command pass through to real Homebrew unchanged.
+
+## Safe Testing
+
+The safe test suite uses a fake `brew` executable and temporary git tap repositories. It does not run real `brew update`, real `brew upgrade`, or any real package upgrade.
+
+Build the local Ruby environment:
+
+```sh
+bundle install
+```
+
+Run all tests:
+
+```sh
+bundle exec rake test
+```
+
+If your shell is not using rbenv shims yet, run the same commands explicitly through rbenv:
+
+```sh
+rbenv exec bundle install
+rbenv exec bundle exec rake test
+```
+
+Expected result:
+
+```text
+54 runs, 336 assertions, 0 failures, 0 errors, 0 skips
+```
+
+Run targeted test files while developing:
+
+```sh
+bundle exec ruby -Ilib:test test/wrapper_integration_test.rb
+bundle exec ruby -Ilib:test test/planner_test.rb
+bundle exec ruby -Ilib:test test/config_test.rb
+```
+
+## Actual Usage
+
+Use this only when you are ready for the wrapper to inspect real Homebrew state. `homebrew-age-gate plan` and wrapper-driven `brew upgrade --dry-run` do not install package upgrades, but they do call real Homebrew discovery commands. `brew upgrade` performs real upgrades after filtering.
+
+1. Build the local Ruby environment:
+
+   ```sh
+   cd /path/to/homebrew-age-gate
+   bundle install
+   ```
+
+2. Put the wrapper before Homebrew on `PATH`:
+
+   ```sh
+   export PATH="$(pwd)/bin:$PATH"
+   command -v brew
+   ```
+
+3. Check wrapper setup without running Homebrew:
+
+   ```sh
+   homebrew-age-gate doctor
+   ```
+
+4. Preview the age-gated plan:
+
+   ```sh
+   homebrew-age-gate plan
+   ```
+
+5. Ask the wrapper to validate the final Homebrew dry-run plan:
+
+   ```sh
+   brew upgrade --dry-run
+   ```
+
+6. Run the real filtered upgrade only when the plan looks correct:
+
+   ```sh
+   brew upgrade
+   ```
+
+You can target explicit packages, but explicit names are still age-gated:
+
+```sh
+brew upgrade jq
+brew upgrade --cask visual-studio-code
+```
 
 ## Development Safety
 

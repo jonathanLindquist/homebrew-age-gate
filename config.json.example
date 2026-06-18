@@ -1,0 +1,6 @@
+{
+  "min_age_days": 7,
+  "allow_auto_updates_casks": ["homebrew/cask/slack"],
+  "unsafe_allow_unknown_age": [],
+  "unsafe_preserve_installed_dependents_check": false
+}

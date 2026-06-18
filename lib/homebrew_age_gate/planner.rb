@@ -39,8 +39,8 @@ module HomebrewAgeGate
       Plan.new(parsed_args: parsed, decisions: decisions)
     end
 
-    def validate_planned_names(parsed_args, names)
-      packages = fetch_packages_from_names(names)
+    def validate_planned_names(parsed_args, names, type: nil)
+      packages = fetch_packages_from_names(names, type: type)
       missing = names.reject do |name|
         packages.any? { |package| package.name == name || package.canonical_name == name }
       end
@@ -83,13 +83,20 @@ module HomebrewAgeGate
     attr_reader :config, :runner, :arg_parser, :age_resolver
 
     def outdated_candidates(parsed)
-      args = ["outdated", "--json=v2"] + parsed.outdated_flags + parsed.names
+      args = ["outdated", "--json=v2"] + outdated_discovery_flags(parsed) + parsed.names
       payload = JSON.parse(runner.capture(args))
       formulae = payload.fetch("formulae", []).map { |item| [:formula, item.fetch("name")] }
       casks = payload.fetch("casks", []).map { |item| [:cask, item.fetch("name")] }
       formulae + casks
     rescue JSON::ParserError => e
       raise ConfigError, "Unable to parse brew outdated JSON: #{e.message}"
+    end
+
+    def outdated_discovery_flags(parsed)
+      return parsed.outdated_flags unless parsed.names.empty?
+      return parsed.outdated_flags if parsed.outdated_flags.any? { |flag| %w[--formula --formulae --cask --casks].include?(flag) }
+
+      parsed.outdated_flags + ["--formula"]
     end
 
     def fetch_packages(candidates)
@@ -102,8 +109,10 @@ module HomebrewAgeGate
       packages
     end
 
-    def fetch_packages_from_names(names)
+    def fetch_packages_from_names(names, type: nil)
       return [] if names.empty?
+
+      return fetch_info(names, type) if type
 
       output = runner.capture(["info", "--json=v2"] + names, env: final_env)
       payload = JSON.parse(output)
@@ -128,10 +137,6 @@ module HomebrewAgeGate
     end
 
     def decide(package)
-      if package.latest_cask? && !config.allow_latest_cask?(package)
-        return Decision.new(package: package, allowed: false, reason: "cask version is latest", age_result: nil)
-      end
-
       if package.auto_updates_cask? && !config.allow_auto_updates_cask?(package)
         return Decision.new(package: package, allowed: false, reason: "cask auto_updates true", age_result: nil)
       end

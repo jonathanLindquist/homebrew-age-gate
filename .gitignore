@@ -5,6 +5,7 @@
 /.ruby-lsp/
 /vendor/bundle/
 /.idea/
-/plans
+#/plans
 *.iml
 .DS_Store
+config.json

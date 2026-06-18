@@ -3,7 +3,7 @@
 require_relative "test_helper"
 
 class PlannerTest < Minitest::Test
-  def test_initial_plan_gates_formulae_and_conservative_casks
+  def test_blank_upgrade_plans_formulae_only
     Dir.mktmpdir do |dir|
       tap_repo, head = create_tap_repo(
         dir,
@@ -46,9 +46,11 @@ class PlannerTest < Minitest::Test
       with_env(env) do
         plan = planner.initial_plan(["upgrade"])
         assert_equal ["homebrew/core/oldpkg"], plan.allowed_packages.map(&:canonical_name)
-        assert_equal ["homebrew/core/youngpkg", "homebrew/cask/slack"], plan.skipped.map { |decision| decision.package.canonical_name }
-        assert_equal ["too young", "cask auto_updates true"], plan.skipped.map(&:reason)
+        assert_equal ["homebrew/core/youngpkg"], plan.skipped.map { |decision| decision.package.canonical_name }
+        assert_equal ["too young"], plan.skipped.map(&:reason)
       end
+
+      assert_includes read_log(log_path).map { |entry| entry["args"] }, ["outdated", "--json=v2", "--formula"]
     end
   end
 
@@ -119,11 +121,12 @@ class PlannerTest < Minitest::Test
     end
   end
 
-  def test_cask_latest_and_auto_updates_can_be_allowed_per_cask
+  def test_latest_casks_are_age_gated_and_auto_updates_can_be_allowed_per_cask
     Dir.mktmpdir do |dir|
       tap_repo, head = create_tap_repo(
         dir,
-        "Casks/l/latest-app.rb" => 10,
+        "Casks/l/latest-old.rb" => 10,
+        "Casks/l/latest-young.rb" => 1,
         "Casks/a/auto-app.rb" => 10
       )
       fake_brew = make_fake_brew(dir)
@@ -131,7 +134,6 @@ class PlannerTest < Minitest::Test
       scenario_path = File.join(dir, "scenario.json")
       config_path = File.join(dir, "config.json")
       write_json(config_path, {
-        "allow_latest_casks" => ["homebrew/cask/latest-app"],
         "allow_auto_updates_casks" => ["homebrew/cask/auto-app"]
       })
       write_scenario(
@@ -139,10 +141,11 @@ class PlannerTest < Minitest::Test
         repos: { "homebrew/cask" => tap_repo },
         outdated: {
           "formulae" => [],
-          "casks" => [{ "name" => "latest-app" }, { "name" => "auto-app" }]
+          "casks" => [{ "name" => "latest-old" }, { "name" => "latest-young" }, { "name" => "auto-app" }]
         },
         casks: [
-          cask_info("latest-app", tap: "homebrew/cask", path: "Casks/l/latest-app.rb", head: head, version: "latest"),
+          cask_info("latest-old", tap: "homebrew/cask", path: "Casks/l/latest-old.rb", head: head, version: "latest"),
+          cask_info("latest-young", tap: "homebrew/cask", path: "Casks/l/latest-young.rb", head: head, version: "latest"),
           cask_info("auto-app", tap: "homebrew/cask", path: "Casks/a/auto-app.rb", head: head, auto_updates: true)
         ]
       )
@@ -155,9 +158,10 @@ class PlannerTest < Minitest::Test
       planner = HomebrewAgeGate::Planner.new(config: config, runner: runner)
 
       with_env("FAKE_BREW_SCENARIO" => scenario_path, "FAKE_BREW_LOG" => log_path) do
-        plan = planner.initial_plan(["upgrade"])
-        assert_equal ["homebrew/cask/latest-app", "homebrew/cask/auto-app"], plan.allowed_packages.map(&:canonical_name)
-        assert_empty plan.skipped
+        plan = planner.initial_plan(["upgrade", "--cask"])
+        assert_equal ["homebrew/cask/latest-old", "homebrew/cask/auto-app"], plan.allowed_packages.map(&:canonical_name)
+        assert_equal ["homebrew/cask/latest-young"], plan.skipped.map { |decision| decision.package.canonical_name }
+        assert_equal ["too young"], plan.skipped.map(&:reason)
       end
     end
   end

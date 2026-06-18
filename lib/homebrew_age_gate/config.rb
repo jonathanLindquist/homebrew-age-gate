@@ -12,12 +12,12 @@ module HomebrewAgeGate
       "min_age_days" => 7,
       "real_brew_path" => DEFAULT_REAL_BREW,
       "allow_auto_updates_casks" => [],
-      "allow_latest_casks" => [],
       "unsafe_allow_unknown_age" => [],
       "unsafe_preserve_installed_dependents_check" => false
     }.freeze
 
-    KEYS = DEFAULTS.keys.freeze
+    LEGACY_KEYS = %w[allow_latest_casks].freeze
+    KEYS = (DEFAULTS.keys + LEGACY_KEYS).freeze
 
     attr_reader :path, :values
 
@@ -38,7 +38,7 @@ module HomebrewAgeGate
           raise ConfigError, "Unknown config key(s): #{unknown_keys.sort.join(", ")}"
         end
 
-        raw_values = parsed
+        raw_values = parsed.reject { |key, _| LEGACY_KEYS.include?(key) }
       end
 
       values = DEFAULTS.merge(raw_values)
@@ -77,10 +77,6 @@ module HomebrewAgeGate
       name_set("allow_auto_updates_casks").include_package?(package)
     end
 
-    def allow_latest_cask?(package)
-      name_set("allow_latest_casks").include_package?(package)
-    end
-
     def unsafe_allow_unknown_age?(package)
       name_set("unsafe_allow_unknown_age").include_package?(package)
     end
@@ -96,7 +92,7 @@ module HomebrewAgeGate
         raise ConfigError, "real_brew_path must be a non-empty string"
       end
 
-      %w[allow_auto_updates_casks allow_latest_casks unsafe_allow_unknown_age].each do |key|
+      %w[allow_auto_updates_casks unsafe_allow_unknown_age].each do |key|
         value = values.fetch(key)
         unless value.is_a?(Array) && value.all? { |entry| entry.is_a?(String) && !entry.empty? }
           raise ConfigError, "#{key} must be an array of non-empty strings"
@@ -133,4 +129,3 @@ module HomebrewAgeGate
     end
   end
 end
-

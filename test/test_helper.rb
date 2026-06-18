@@ -36,13 +36,14 @@ module TestHelpers
     }.merge(extra)
   end
 
-  def write_scenario(path, repos:, outdated:, formulae: [], casks: [], dry_run_output: "", dry_run_status: 0, upgrade_status: 0)
+  def write_scenario(path, repos:, outdated:, formulae: [], casks: [], dry_run_output: "", dry_run_outputs: {}, dry_run_status: 0, upgrade_status: 0)
     write_json(path, {
       "repos" => repos,
       "outdated" => outdated,
       "formulae" => formulae,
       "casks" => casks,
       "dry_run_output" => dry_run_output,
+      "dry_run_outputs" => dry_run_outputs,
       "dry_run_status" => dry_run_status,
       "upgrade_status" => upgrade_status
     })
@@ -73,7 +74,18 @@ module TestHelpers
 
       case ARGV.first
       when "outdated"
-        emit(scenario.fetch("outdated"))
+        if ARGV.any? { |arg| arg == "--json" || arg.start_with?("--json=") }
+          formula_only = ARGV.include?("--formula") || ARGV.include?("--formulae")
+          cask_only = ARGV.include?("--cask") || ARGV.include?("--casks")
+          outdated = scenario.fetch("outdated")
+          emit({
+            "formulae" => cask_only ? [] : outdated.fetch("formulae", []),
+            "casks" => formula_only ? [] : outdated.fetch("casks", [])
+          })
+        else
+          print scenario.fetch("outdated_text", "")
+        end
+        exit scenario.fetch("outdated_status", 0)
       when "info"
         names = names_after_info_args(ARGV)
         formula_only = ARGV.include?("--formula") || ARGV.include?("--formulae")
@@ -94,7 +106,8 @@ module TestHelpers
         puts repo
       when "upgrade"
         if ARGV.include?("--dry-run")
-          print scenario.fetch("dry_run_output")
+          dry_run_outputs = scenario.fetch("dry_run_outputs", {})
+          print dry_run_outputs.fetch(ARGV.join(" "), scenario.fetch("dry_run_output"))
           exit scenario.fetch("dry_run_status", 0)
         end
         puts "fake upgrade \#{ARGV[1..-1].join(" ")}"
@@ -124,6 +137,10 @@ module TestHelpers
   end
 
   def create_tap_repo(dir, files_with_age_days)
+    create_tap_repo_at(dir, Time.now, files_with_age_days)
+  end
+
+  def create_tap_repo_at(dir, now, files_with_age_days)
     repo = File.join(dir, "tap")
     FileUtils.mkdir_p(repo)
     system("git", "-C", repo, "init", out: File::NULL, err: File::NULL)
@@ -135,7 +152,7 @@ module TestHelpers
       FileUtils.mkdir_p(File.dirname(full_path))
       File.write(full_path, "# #{path}\\n")
       system("git", "-C", repo, "add", path)
-      timestamp = Time.now - (age_days * 86_400)
+      timestamp = now - (age_days * 86_400)
       commit_env = {
         "GIT_AUTHOR_DATE" => timestamp.utc.iso8601,
         "GIT_COMMITTER_DATE" => timestamp.utc.iso8601
@@ -147,11 +164,35 @@ module TestHelpers
     [repo, head]
   end
 
-  def formula_info(name, tap:, path:, head:)
+  def create_tap_repo_history_at(dir, now, path, commits)
+    repo = File.join(dir, "tap")
+    FileUtils.mkdir_p(repo)
+    system("git", "-C", repo, "init", out: File::NULL, err: File::NULL)
+    system("git", "-C", repo, "config", "user.email", "test@example.com")
+    system("git", "-C", repo, "config", "user.name", "Test User")
+
+    commits.each do |age_days, content|
+      full_path = File.join(repo, path)
+      FileUtils.mkdir_p(File.dirname(full_path))
+      File.write(full_path, content)
+      system("git", "-C", repo, "add", path)
+      timestamp = now - (age_days * 86_400)
+      commit_env = {
+        "GIT_AUTHOR_DATE" => timestamp.utc.iso8601,
+        "GIT_COMMITTER_DATE" => timestamp.utc.iso8601
+      }
+      system(commit_env, "git", "-C", repo, "commit", "-m", "update #{path}", out: File::NULL, err: File::NULL)
+    end
+
+    head = `git -C #{repo.shellescape} rev-parse HEAD`.strip
+    [repo, head]
+  end
+
+  def formula_info(name, tap:, path:, head:, version: "2.0.0")
     {
       "name" => name,
       "tap" => tap,
-      "versions" => { "stable" => "2.0.0" },
+      "versions" => { "stable" => version },
       "ruby_source_path" => path,
       "tap_git_head" => head
     }

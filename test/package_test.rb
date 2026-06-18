@@ -18,7 +18,7 @@ class PackageTest < Minitest::Test
   end
 
   def test_cask_policy_helpers
-    latest = HomebrewAgeGate::Package.new(
+    package = HomebrewAgeGate::Package.new(
       type: :cask,
       name: "some-app",
       tap: "homebrew/cask",
@@ -28,9 +28,7 @@ class PackageTest < Minitest::Test
       auto_updates: true
     )
 
-    assert latest.cask?
-    assert latest.latest_cask?
-    assert latest.auto_updates_cask?
+    assert package.cask?
+    assert package.auto_updates_cask?
   end
 end
-
