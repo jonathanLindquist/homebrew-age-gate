@@ -100,7 +100,20 @@ homebrew-age-gate plan
 homebrew-age-gate doctor
 ```
 
-Bare `brew upgrade` only discovers and upgrades formulae. Cask upgrades are left alone unless you explicitly invoke a cask upgrade path; if you prefer `brew cu`, that command passes through unchanged. `brew outdated` passes through to real Homebrew, then annotates human-readable output with age-gate version and age details. `brew update`, `brew info`, and every other non-upgrade command pass through to real Homebrew unchanged.
+Bare `brew upgrade` only discovers and upgrades formulae. Cask upgrades are left alone unless you explicitly invoke a cask upgrade path; if you prefer `brew cu`, that command passes through unchanged. `brew outdated` passes through to real Homebrew, then annotates human-readable output with age-gate version and age details in a table:
+
+```text
+Formulae
+name        | current version | latest version | age | safe version | safe age
+aws-sam-cli | 1.161.0         | 1.162.1        | 4d  | 1.161.1      | 18d
+btop        | 1.4.6           | 1.4.7          | 10d |              |
+
+Casks
+name   | current version | latest version | age | safe version | safe age
+apidog | 2.8.33          | 2.8.34         | 5d  | 2.8.33       | 12d
+```
+
+`brew update`, `brew info`, and every other non-upgrade command pass through to real Homebrew unchanged.
 
 ## Safe Testing
 
@@ -128,7 +141,7 @@ rbenv exec bundle exec rake test
 Expected result:
 
 ```text
-54 runs, 336 assertions, 0 failures, 0 errors, 0 skips
+55 runs, 372 assertions, 0 failures, 0 errors, 0 skips
 ```
 
 Run targeted test files while developing:

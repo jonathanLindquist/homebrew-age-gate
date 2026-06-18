@@ -238,8 +238,12 @@ class WrapperIntegrationTest < Minitest::Test
       )
 
       assert status.success?, stderr
-      assert_match(/\e\[38;2;119;221;119moldpkg\e\[0m \e\[38;2;119;221;119mversion:\e\[0m 2\.0\.0 \e\[38;2;119;221;119mage:\e\[0m \d+d/, stdout)
-      assert_match(/\e\[38;2;255;154;162myoungpkg\e\[0m \e\[38;2;255;154;162mversion:\e\[0m 2\.0\.0 \e\[38;2;255;154;162mage:\e\[0m \d+d/, stdout)
+      assert_includes stdout, "\e[38;2;255;190;120mcurrent version\e[0m"
+      assert_includes stdout, "\e[38;2;255;190;120mlatest version\e[0m"
+      assert_match(/\e\[38;2;119;221;119moldpkg\e\[0m\s+\| 1\.0\s+\| 2\.0\.0\s+\| \d+d/, stdout)
+      assert_match(/\e\[38;2;255;154;162myoungpkg\e\[0m \| 1\.0\s+\| 2\.0\.0\s+\| \d+d/, stdout)
+      refute_includes stdout, "\e[38;2;119;221;119m2.0.0"
+      refute_includes stdout, "\e[38;2;255;190;120m2.0.0"
       refute_includes stdout, "date:"
       calls = read_log(log_path).map { |entry| entry["args"] }
       assert_includes calls, ["outdated"]
@@ -282,7 +286,7 @@ class WrapperIntegrationTest < Minitest::Test
       write_json(scenario_path, {
         "repos" => { "homebrew/core" => tap_repo },
         "outdated" => { "formulae" => [{ "name" => "oldpkg" }], "casks" => [] },
-        "outdated_text" => "oldpkg\n",
+        "outdated_text" => "oldpkg 1.0 < 2.0\n",
         "outdated_status" => 1,
         "formulae" => [
           formula_info("oldpkg", tap: "homebrew/core", path: "Formula/o/oldpkg.rb", head: head)
@@ -297,7 +301,8 @@ class WrapperIntegrationTest < Minitest::Test
       )
 
       refute status.success?, stderr
-      assert_match(/oldpkg version: 2\.0\.0 age: \d+d/, stdout)
+      assert_includes stdout, "name   | current version | latest version | age\n"
+      assert_match(/oldpkg \| 1\.0\s+\| 2\.0\.0\s+\| \d+d/, stdout)
       refute_includes stdout, "date:"
       assert_no_real_brew_calls!(log_path)
     end

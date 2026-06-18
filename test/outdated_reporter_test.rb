@@ -35,11 +35,18 @@ class OutdatedReporterTest < Minitest::Test
       )
 
       with_env("FAKE_BREW_SCENARIO" => scenario_path, "FAKE_BREW_LOG" => log_path) do
-        output = reporter.annotate("oldpkg 1.0 < 2.0\nyoungpkg 1.0 < 2.0\n", color: true)
+        output = reporter.annotate("youngpkg 1.0 < 2.0\noldpkg 1.0 < 2.0\n", color: true)
 
-        assert_includes output, "\e[38;2;119;221;119moldpkg\e[0m \e[38;2;119;221;119mversion:\e[0m 2.0.0 \e[38;2;119;221;119mage:\e[0m 10d"
-        assert_includes output, "\e[38;2;255;154;162myoungpkg\e[0m \e[38;2;255;154;162mversion:\e[0m 2.0.0 \e[38;2;255;154;162mage:\e[0m 1d"
+        assert_includes output, "Formulae\n"
+        assert_includes output, "\e[38;2;255;190;120mname\e[0m"
+        assert_includes output, "\e[38;2;255;190;120mcurrent version\e[0m"
+        assert_includes output, "\e[38;2;255;190;120mlatest version\e[0m"
+        assert_includes output, "\e[38;2;119;221;119moldpkg\e[0m   | 1.0             | 2.0.0          | 10d\n"
+        assert_includes output, "\e[38;2;255;154;162myoungpkg\e[0m | 1.0             | 2.0.0          | 1d\n"
+        assert_operator output.index("oldpkg"), :<, output.index("youngpkg")
         refute_includes output, "\e[38;2;119;221;119m2.0.0"
+        refute_includes output, "\e[38;2;255;190;120m2.0.0"
+        refute_includes output, "\e[38;2;255;154;162m1d"
         refute_includes output, "date:"
       end
     end
@@ -77,9 +84,11 @@ class OutdatedReporterTest < Minitest::Test
       )
 
       with_env("FAKE_BREW_SCENARIO" => scenario_path, "FAKE_BREW_LOG" => log_path) do
-        output = reporter.annotate("evernote\n")
+        output = reporter.annotate("evernote 10.104.0 < 10.105.4\n")
 
-        assert_includes output, "evernote version: 10.105.4 age: 54d"
+        assert_includes output, "Casks\n"
+        assert_includes output, "name     | current version | latest version | age\n"
+        assert_includes output, "evernote | 10.104.0        | 10.105.4       | 54d\n"
         refute_includes output, "date:"
         refute_includes output, "20240910164757"
         refute_includes output, "a2e60a8d876a07eded5d212fa56ba45214114ad0"
@@ -127,18 +136,76 @@ class OutdatedReporterTest < Minitest::Test
       )
 
       with_env("FAKE_BREW_SCENARIO" => scenario_path, "FAKE_BREW_LOG" => log_path) do
-        output = reporter.annotate("apidog\n", color: true)
+        output = reporter.annotate("apidog 2.8.33 < 2.8.34\n", color: true)
 
         assert_includes(
           output,
-          "\e[38;2;255;154;162mapidog\e[0m " \
-            "\e[38;2;255;154;162mversion:\e[0m 2.8.34 " \
-            "\e[38;2;255;154;162mage:\e[0m 5d -> " \
-            "\e[38;2;119;221;119mversion:\e[0m 2.8.20 " \
-            "\e[38;2;119;221;119mage:\e[0m 20d"
+          "Casks\n" \
+            "\e[38;2;255;190;120mname\e[0m   | " \
+            "\e[38;2;255;190;120mcurrent version\e[0m | " \
+            "\e[38;2;255;190;120mlatest version\e[0m | " \
+            "\e[38;2;255;190;120mage\e[0m | " \
+            "\e[38;2;255;190;120msafe version\e[0m | " \
+            "\e[38;2;255;190;120msafe age\e[0m\n" \
+            "\e[38;2;255;154;162mapidog\e[0m | 2.8.33          | 2.8.34         | 5d  | 2.8.20       | 20d\n"
         )
+        refute_includes output, "\e[38;2;255;154;162m2.8.34"
+        refute_includes output, "\e[38;2;119;221;119m2.8.20"
+        refute_includes output, "\e[38;2;255;190;120m2.8.33"
         refute_includes output, "newhash"
         refute_includes output, "oldhash"
+      end
+    end
+  end
+
+  def test_groups_formulae_and_casks_and_sorts_each_group
+    Dir.mktmpdir do |dir|
+      now = Time.utc(2026, 6, 18, 12, 0, 0)
+      tap_repo, head = create_tap_repo_at(
+        dir,
+        now,
+        {
+          "Formula/a/alpha.rb" => 10,
+          "Formula/b/beta.rb" => 10,
+          "Casks/a/apidog.rb" => 10,
+          "Casks/z/zoom.rb" => 10
+        }
+      )
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo, "homebrew/cask" => tap_repo },
+        outdated: {
+          "formulae" => [{ "name" => "alpha" }, { "name" => "beta" }],
+          "casks" => [{ "name" => "apidog" }, { "name" => "zoom" }]
+        },
+        formulae: [
+          formula_info("alpha", tap: "homebrew/core", path: "Formula/a/alpha.rb", head: head),
+          formula_info("beta", tap: "homebrew/core", path: "Formula/b/beta.rb", head: head)
+        ],
+        casks: [
+          cask_info("apidog", tap: "homebrew/cask", path: "Casks/a/apidog.rb", head: head),
+          cask_info("zoom", tap: "homebrew/cask", path: "Casks/z/zoom.rb", head: head)
+        ]
+      )
+      config = HomebrewAgeGate::Config.load(
+        "HOME" => dir,
+        "HOMEBREW_AGE_GATE_REAL_BREW" => fake_brew
+      )
+      reporter = HomebrewAgeGate::OutdatedReporter.new(
+        config: config,
+        runner: HomebrewAgeGate::BrewRunner.new(fake_brew),
+        now: now
+      )
+
+      with_env("FAKE_BREW_SCENARIO" => scenario_path, "FAKE_BREW_LOG" => log_path) do
+        output = reporter.annotate("zoom\nbeta\napidog\nalpha\n")
+
+        assert_operator output.index("Formulae"), :<, output.index("Casks")
+        assert_operator output.index("alpha"), :<, output.index("beta")
+        assert_operator output.index("apidog"), :<, output.index("zoom")
       end
     end
   end
