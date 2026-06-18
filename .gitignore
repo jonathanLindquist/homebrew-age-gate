@@ -1,0 +1,10 @@
+/.bundle/*
+!/.bundle/config
+/coverage/
+/tmp/
+/.ruby-lsp/
+/vendor/bundle/
+/.idea/
+/plans
+*.iml
+.DS_Store

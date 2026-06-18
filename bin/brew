@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+$LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
+
+require "homebrew_age_gate"
+
+real_brew = ENV["HOMEBREW_AGE_GATE_REAL_BREW"] || "/opt/homebrew/bin/brew"
+
+if ARGV.first == "upgrade"
+  exit HomebrewAgeGate::CLI.run_brew_wrapper(ARGV)
+end
+
+exec(real_brew, *ARGV)
+

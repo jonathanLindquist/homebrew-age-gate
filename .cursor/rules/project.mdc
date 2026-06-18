@@ -1,0 +1,16 @@
+---
+description: Shared homebrew-age-gate project instructions
+alwaysApply: true
+---
+
+# homebrew-age-gate
+
+Use `AGENTS.md` as the canonical shared project instructions for this repository.
+
+Key rules to follow:
+
+- Do not run real `brew update` or real `brew upgrade` while developing or testing this project.
+- Use `bundle install` to build the local Ruby environment.
+- Use `bundle exec rake test` for the test suite.
+- Keep Homebrew upgrade behavior covered by fake-brew tests.
+

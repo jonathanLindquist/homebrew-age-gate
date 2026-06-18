@@ -1,0 +1,13 @@
+# frozen_string_literal: true
+
+require_relative "homebrew_age_gate/arg_parser"
+require_relative "homebrew_age_gate/age_resolver"
+require_relative "homebrew_age_gate/brew_runner"
+require_relative "homebrew_age_gate/cli"
+require_relative "homebrew_age_gate/config"
+require_relative "homebrew_age_gate/dry_run_parser"
+require_relative "homebrew_age_gate/package"
+require_relative "homebrew_age_gate/planner"
+require_relative "homebrew_age_gate/report"
+require_relative "homebrew_age_gate/version"
+
