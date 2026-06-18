@@ -47,7 +47,7 @@ class PlannerTest < Minitest::Test
         plan = planner.initial_plan(["upgrade"])
         assert_equal ["homebrew/core/oldpkg"], plan.allowed_packages.map(&:canonical_name)
         assert_equal ["homebrew/core/youngpkg"], plan.skipped.map { |decision| decision.package.canonical_name }
-        assert_equal ["too young"], plan.skipped.map(&:reason)
+        assert_equal ["too new"], plan.skipped.map(&:reason)
       end
 
       assert_includes read_log(log_path).map { |entry| entry["args"] }, ["outdated", "--json=v2", "--formula"]
@@ -161,7 +161,7 @@ class PlannerTest < Minitest::Test
         plan = planner.initial_plan(["upgrade", "--cask"])
         assert_equal ["homebrew/cask/latest-old", "homebrew/cask/auto-app"], plan.allowed_packages.map(&:canonical_name)
         assert_equal ["homebrew/cask/latest-young"], plan.skipped.map { |decision| decision.package.canonical_name }
-        assert_equal ["too young"], plan.skipped.map(&:reason)
+        assert_equal ["too new"], plan.skipped.map(&:reason)
       end
     end
   end

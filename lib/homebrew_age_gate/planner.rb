@@ -156,7 +156,7 @@ module HomebrewAgeGate
       if age.age_seconds >= min_age_seconds
         Decision.new(package: package, allowed: true, reason: "old enough", age_result: age)
       else
-        Decision.new(package: package, allowed: false, reason: "too young", age_result: age)
+        Decision.new(package: package, allowed: false, reason: "too new", age_result: age)
       end
     end
   end
