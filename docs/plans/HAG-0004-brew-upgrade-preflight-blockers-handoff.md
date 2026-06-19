@@ -294,3 +294,27 @@ Add integration tests before implementing the fix:
 6. Implement safe subset selection.
 7. Re-run focused integration tests, then full suite.
 8. Do not run real `brew update` or real `brew upgrade` during the fix.
+
+## Completion Notes
+
+Completed on 2026-06-19 in commit `518ca3e Handle blocked dependency preflights`.
+
+Implementation summary:
+
+- Added `HomebrewAgeGate::UpgradePreflight` to keep the whole-batch dry-run fast path and isolate root formulae only after a known too-new dependency blocks the frozen dry-run expansion.
+- Real and `--dry-run` modes now report green root formulae deferred by too-new dependency blockers, including the blocked dependency names and reasons.
+- Unknown age, missing metadata, unparseable dry-run output, and failed Homebrew dry-runs still fail closed.
+- Final upgrade commands remain explicit allowlists and never include blocked dependency formulae.
+
+Verification:
+
+```sh
+rbenv exec bundle exec ruby -Ilib:test test/wrapper_integration_test.rb
+rbenv exec bundle exec rake test
+```
+
+Final full-suite result:
+
+```text
+58 runs, 501 assertions, 0 failures, 0 errors, 0 skips
+```
