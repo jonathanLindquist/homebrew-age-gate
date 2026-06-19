@@ -8,6 +8,9 @@ Issues, implementation tickets, and project task state for this repo live in an 
 - Board: `~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md`
 - Template: `~/obsidian_notes/pocock-skills-vault/Z - Templates/Kanban Template.md`
 - Project path: `~/projects/utilities/homebrew-age-gate`
+- Tool config: `docs/agents/project-workflow.json`
+- Ticket sequence: `docs/agents/ticket-sequence.json`
+- Execution plans: `docs/plans/*.md`
 
 The board path mirrors the project path relative to the home directory: `projects/utilities/homebrew-age-gate`.
 
@@ -17,35 +20,42 @@ The board path mirrors the project path relative to the home directory: `project
 - `In Progress` means actively being worked.
 - `Completed` means done.
 
-Move a ticket by moving its full markdown card between these lane headings.
+The current ticket status is the card's lane on the Obsidian board. Do not encode current status in the plan file path.
 
 ## Ticket Format
 
-When a skill says "publish to the issue tracker", create a new Kanban card in `Backlog` using the format from the vault's `Kanban Template.md`.
+When a skill says "publish to the issue tracker", use the ticket utility documented in `docs/agents/ticket-workflow.md`. It creates the Kanban card and linked plan file together.
 
-Each ticket should include:
+Each ticket card should stay short and include:
 
-- title line using the Kanban checkbox/card format
-- `## Description`
-- relevant tags such as `#homebrew-age-gate`, `#cli`, `#sync`, `#tests`, or `#2026`
-- `## Implementation Data`
-- a triage tag line using one of the tags from `docs/agents/triage-labels.md`
+- title line using the Kanban checkbox/card format, with the stable ticket ID first
+- `## Description` with all tags and a 1-3 sentence summary
+- `## Implementation Details` with `Ticket` and `Plan` bullets
 - `## TODO Checklist`
 - `## Definition of Done`
 
-For implementation work, record concrete evidence in `Implementation Data`: commit SHAs, changed files, commands run, relevant paths, decisions made, and verification results.
-
-Use triage labels as Obsidian tags, for example:
+Use this shape:
 
 ```markdown
-- Triage: #ready-for-agent
+- [ ] # <span style="color: #77ccd5">HAG-0002 Ticket title</span>
+
+    ## Description
+
+    #needs-triage #optional-topic
+
+    1-3 sentence summary.
+
+    ## Implementation Details
+
+    - Ticket: HAG-0002
+    - Plan: docs/plans/HAG-0002-ticket-title.md
 ```
 
-The Kanban plugin's vault-level `tag-colors` settings define the visual colors for these tags across all Kanban boards in the vault.
+For implementation work, record longform context, plans, and verification notes in the linked `docs/plans/*.md` file. Keep the card scannable.
 
 ## Fetching Tickets
 
-When a skill says "fetch the relevant ticket", read the referenced card in the Obsidian Kanban board. The user may name the card title, paste a section, or provide the board path.
+When a skill says "fetch the relevant ticket", read the referenced card in the Obsidian Kanban board and then read its linked plan file under `docs/plans/`.
 
 ## Pull Requests
 

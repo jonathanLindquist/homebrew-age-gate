@@ -1,4 +1,9 @@
-# Brew Upgrade Preflight Blockers Handoff
+# HAG-0004 Brew Upgrade Preflight Blockers Handoff
+
+- Ticket: HAG-0004
+- Board: ~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md
+- Card: HAG-0004 Brew Upgrade Preflight Blockers
+- Migrated: 2026-06-19
 
 Created: 2026-06-18
 
@@ -42,7 +47,7 @@ The branch is intentionally dirty from the current feature sequence. Current vis
 ?? test/safe_version_resolver_test.rb
 ```
 
-The `plans/` directory is ignored by `.gitignore`, so this file will not appear in normal `git status`.
+This handoff originally lived under the ignored `plans/` tree. It has been migrated to `docs/plans/` as long-lived project history.
 
 Last full verification before this handoff, after the formula-only default change:
 

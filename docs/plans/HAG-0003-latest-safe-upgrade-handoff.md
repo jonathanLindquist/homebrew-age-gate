@@ -1,4 +1,9 @@
-# Latest Safe Upgrade Handoff
+# HAG-0003 Latest Safe Upgrade Handoff
+
+- Ticket: HAG-0003
+- Board: ~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md
+- Card: HAG-0003 Latest Safe Upgrade
+- Migrated: 2026-06-19
 
 ## Goal
 

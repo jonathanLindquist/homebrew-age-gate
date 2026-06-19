@@ -1,4 +1,11 @@
-# homebrew-age-gate Implementation Plan
+# HAG-0002 Initial Implementation
+
+- Ticket: HAG-0002
+- Board: ~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md
+- Card: HAG-0002 Initial Implementation
+- Migrated: 2026-06-19
+
+## Original Plan
 
 ## Summary
 
@@ -73,4 +80,3 @@ Tests must use a fake `brew` executable and temporary git tap repositories. Veri
   - dry-run full-plan dependency rejection
   - cleanup and auto-update env passed to final upgrade
   - non-upgrade commands pass through unchanged
-

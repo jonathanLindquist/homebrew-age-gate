@@ -1,6 +1,5 @@
-@AGENTS.md
+# Claude Code Instructions
 
-## Claude Code
+Read and follow `AGENTS.md`. It is the canonical source for repo-local agent guidance.
 
-Use `AGENTS.md` as the canonical shared project instructions. Keep Claude-specific notes here only when they should not apply to other coding agents.
-
+Do not duplicate shared instructions in this file. Update `AGENTS.md` instead.
