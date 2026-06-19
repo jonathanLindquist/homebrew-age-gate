@@ -108,13 +108,13 @@ Bare `brew upgrade` only discovers and upgrades formulae. Cask upgrades are left
 
 ```text
 Formulae
-name        | current version | latest version | age | safe version | safe age
-aws-sam-cli | 1.161.0         | 1.162.1        | 4d  | 1.161.1      | 18d
-btop        | 1.4.6           | 1.4.7          | 10d |              |
+name         current version  latest version  age  safe version  safe age
+aws-sam-cli  1.161.0          1.162.1         4d   1.161.1       18d
+btop         1.4.6            1.4.7           10d
 
 Casks
-name   | current version | latest version | age | safe version | safe age
-apidog | 2.8.33          | 2.8.34         | 5d  | 2.8.33       | 12d
+name    current version  latest version  age  safe version  safe age
+apidog  2.8.33           2.8.34          5d   2.8.33       12d
 ```
 
 `brew update`, `brew info`, and every other non-upgrade command pass through to real Homebrew unchanged.

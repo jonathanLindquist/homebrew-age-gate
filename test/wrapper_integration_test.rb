@@ -46,6 +46,41 @@ class WrapperIntegrationTest < Minitest::Test
     end
   end
 
+  def test_explicit_upgrade_accepts_outdated_json_with_nonzero_status
+    Dir.mktmpdir do |dir|
+      tap_repo, head = create_tap_repo(dir, "Formula/s/sqlite.rb" => 14)
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_json(scenario_path, {
+        "repos" => { "homebrew/core" => tap_repo },
+        "outdated" => {
+          "formulae" => [{ "name" => "sqlite" }],
+          "casks" => []
+        },
+        "outdated_status" => 1,
+        "formulae" => [
+          formula_info("sqlite", tap: "homebrew/core", path: "Formula/s/sqlite.rb", head: head, version: "3.53.2")
+        ],
+        "casks" => [],
+        "dry_run_output" => "==> Would upgrade 1 outdated package:\nhomebrew/core/sqlite 3.53.0 -> 3.53.2\n"
+      })
+
+      stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade", "sqlite"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path)
+      )
+
+      assert status.success?, stderr
+      assert_match(/homebrew\/core\/sqlite/, stdout)
+      calls = read_log(log_path).map { |entry| entry["args"] }
+      assert_includes calls, ["outdated", "--json=v2", "sqlite"]
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/sqlite"]
+      assert_includes calls, ["upgrade", "--formula", "homebrew/core/sqlite"]
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
   def test_preflight_defers_root_with_young_dependency_and_exits_zero_without_final_upgrade
     Dir.mktmpdir do |dir|
       tap_repo, head = create_tap_repo(
@@ -323,12 +358,13 @@ class WrapperIntegrationTest < Minitest::Test
       )
 
       assert status.success?, stderr
-      assert_includes stdout, "\e[38;2;255;190;120mcurrent version\e[0m"
-      assert_includes stdout, "\e[38;2;255;190;120mlatest version\e[0m"
-      assert_match(/\e\[38;2;119;221;119moldpkg\e\[0m\s+\| 1\.0\s+\| 2\.0\.0\s+\| \d+d/, stdout)
-      assert_match(/\e\[38;2;255;154;162myoungpkg\e\[0m \| 1\.0\s+\| 2\.0\.0\s+\| \d+d/, stdout)
+      assert_includes stdout, "\e[38;2;255;190;120m\e[4mcurrent version\e[0m"
+      assert_includes stdout, "\e[38;2;255;190;120m\e[4mlatest version\e[0m"
+      assert_match(/\e\[38;2;119;221;119moldpkg\e\[0m\s+1\.0\s+2\.0\.0\s+\d+d/, stdout)
+      assert_match(/\e\[38;2;255;154;162myoungpkg\e\[0m\s+1\.0\s+2\.0\.0\s+\d+d/, stdout)
       refute_includes stdout, "\e[38;2;119;221;119m2.0.0"
       refute_includes stdout, "\e[38;2;255;190;120m2.0.0"
+      refute_includes stdout, "|"
       refute_includes stdout, "date:"
       calls = read_log(log_path).map { |entry| entry["args"] }
       assert_includes calls, ["outdated"]
@@ -386,8 +422,9 @@ class WrapperIntegrationTest < Minitest::Test
       )
 
       refute status.success?, stderr
-      assert_includes stdout, "name   | current version | latest version | age\n"
-      assert_match(/oldpkg \| 1\.0\s+\| 2\.0\.0\s+\| \d+d/, stdout)
+      assert_includes stdout, "name    current version  latest version  age\n"
+      assert_match(/oldpkg\s+1\.0\s+2\.0\.0\s+\d+d/, stdout)
+      refute_includes stdout, "|"
       refute_includes stdout, "date:"
       assert_no_real_brew_calls!(log_path)
     end

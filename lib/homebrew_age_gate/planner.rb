@@ -84,12 +84,21 @@ module HomebrewAgeGate
 
     def outdated_candidates(parsed)
       args = ["outdated", "--json=v2"] + outdated_discovery_flags(parsed) + parsed.names
-      payload = JSON.parse(runner.capture(args))
+      stdout, stderr, status = runner.capture_with_status(args)
+      payload = JSON.parse(stdout)
+      raise CommandError.new(args, stdout, stderr, status) unless status.success? || outdated_payload?(payload)
+
       formulae = payload.fetch("formulae", []).map { |item| [:formula, item.fetch("name")] }
       casks = payload.fetch("casks", []).map { |item| [:cask, item.fetch("name")] }
       formulae + casks
     rescue JSON::ParserError => e
+      raise CommandError.new(args, stdout, stderr, status) if status && !status.success?
+
       raise ConfigError, "Unable to parse brew outdated JSON: #{e.message}"
+    end
+
+    def outdated_payload?(payload)
+      payload.is_a?(Hash) && payload.key?("formulae") && payload.key?("casks")
     end
 
     def outdated_discovery_flags(parsed)

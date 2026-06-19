@@ -38,11 +38,11 @@ class OutdatedReporterTest < Minitest::Test
         output = reporter.annotate("youngpkg 1.0 < 2.0\noldpkg 1.0 < 2.0\n", color: true)
 
         assert_includes output, "Formulae\n"
-        assert_includes output, "\e[38;2;255;190;120mname\e[0m"
-        assert_includes output, "\e[38;2;255;190;120mcurrent version\e[0m"
-        assert_includes output, "\e[38;2;255;190;120mlatest version\e[0m"
-        assert_includes output, "\e[38;2;119;221;119moldpkg\e[0m   | 1.0             | 2.0.0          | 10d\n"
-        assert_includes output, "\e[38;2;255;154;162myoungpkg\e[0m | 1.0             | 2.0.0          | 1d\n"
+        assert_includes output, "\e[38;2;255;190;120m\e[4mname\e[0m"
+        assert_includes output, "\e[38;2;255;190;120m\e[4mcurrent version\e[0m"
+        assert_includes output, "\e[38;2;255;190;120m\e[4mlatest version\e[0m"
+        assert_includes output, "\e[38;2;119;221;119moldpkg\e[0m    1.0              2.0.0           10d\n"
+        assert_includes output, "\e[38;2;255;154;162myoungpkg\e[0m  1.0              2.0.0           1d\n"
         assert_operator output.index("oldpkg"), :<, output.index("youngpkg")
         refute_includes output, "\e[38;2;119;221;119m2.0.0"
         refute_includes output, "\e[38;2;255;190;120m2.0.0"
@@ -87,9 +87,70 @@ class OutdatedReporterTest < Minitest::Test
         output = reporter.annotate("evernote 10.104.0 < 10.105.4\n")
 
         assert_includes output, "Casks\n"
-        assert_includes output, "name     | current version | latest version | age\n"
-        assert_includes output, "evernote | 10.104.0        | 10.105.4       | 54d\n"
+        assert_includes output, "name      current version  latest version  age\n"
+        assert_includes output, "evernote  10.104.0         10.105.4        54d\n"
         refute_includes output, "date:"
+        refute_includes output, "20240910164757"
+        refute_includes output, "a2e60a8d876a07eded5d212fa56ba45214114ad0"
+      end
+    end
+  end
+
+  def test_names_only_outdated_uses_installed_versions_and_spaced_underlined_headers
+    Dir.mktmpdir do |dir|
+      now = Time.utc(2026, 6, 18, 12, 0, 0)
+      tap_repo, head = create_tap_repo_at(
+        dir,
+        now,
+        {
+          "Formula/o/oldpkg.rb" => 10,
+          "Casks/e/evernote.rb" => 54
+        }
+      )
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo, "homebrew/cask" => tap_repo },
+        outdated: {
+          "formulae" => [{ "name" => "oldpkg" }],
+          "casks" => [{ "name" => "evernote" }]
+        },
+        formulae: [
+          formula_info("oldpkg", tap: "homebrew/core", path: "Formula/o/oldpkg.rb", head: head).merge(
+            "installed" => [{ "version" => "1.0" }]
+          )
+        ],
+        casks: [
+          cask_info(
+            "evernote",
+            tap: "homebrew/cask",
+            path: "Casks/e/evernote.rb",
+            head: head,
+            version: "10.105.4,20240910164757,a2e60a8d876a07eded5d212fa56ba45214114ad0"
+          ).merge("installed" => "10.104.0")
+        ]
+      )
+      config = HomebrewAgeGate::Config.load(
+        "HOME" => dir,
+        "HOMEBREW_AGE_GATE_REAL_BREW" => fake_brew
+      )
+      reporter = HomebrewAgeGate::OutdatedReporter.new(
+        config: config,
+        runner: HomebrewAgeGate::BrewRunner.new(fake_brew),
+        now: now
+      )
+
+      with_env("FAKE_BREW_SCENARIO" => scenario_path, "FAKE_BREW_LOG" => log_path) do
+        output = reporter.annotate("evernote\noldpkg\n", color: true)
+
+        assert_includes output, "\e[38;2;255;190;120m\e[4mcurrent version\e[0m"
+        assert_includes output, "\e[38;2;255;190;120m\e[4mlatest version\e[0m"
+        assert_includes output, "\e[38;2;119;221;119moldpkg\e[0m  1.0              2.0.0           10d\n"
+        assert_includes output, "\e[38;2;119;221;119mevernote\e[0m  10.104.0         10.105.4        54d\n"
+        refute_includes output, "unknown"
+        refute_includes output, "|"
         refute_includes output, "20240910164757"
         refute_includes output, "a2e60a8d876a07eded5d212fa56ba45214114ad0"
       end
@@ -141,13 +202,13 @@ class OutdatedReporterTest < Minitest::Test
         assert_includes(
           output,
           "Casks\n" \
-            "\e[38;2;255;190;120mname\e[0m   | " \
-            "\e[38;2;255;190;120mcurrent version\e[0m | " \
-            "\e[38;2;255;190;120mlatest version\e[0m | " \
-            "\e[38;2;255;190;120mage\e[0m | " \
-            "\e[38;2;255;190;120msafe version\e[0m | " \
-            "\e[38;2;255;190;120msafe age\e[0m\n" \
-            "\e[38;2;255;154;162mapidog\e[0m | 2.8.33          | 2.8.34         | 5d  | 2.8.20       | 20d\n"
+            "\e[38;2;255;190;120m\e[4mname\e[0m    " \
+            "\e[38;2;255;190;120m\e[4mcurrent version\e[0m  " \
+            "\e[38;2;255;190;120m\e[4mlatest version\e[0m  " \
+            "\e[38;2;255;190;120m\e[4mage\e[0m  " \
+            "\e[38;2;255;190;120m\e[4msafe version\e[0m  " \
+            "\e[38;2;255;190;120m\e[4msafe age\e[0m\n" \
+            "\e[38;2;255;154;162mapidog\e[0m  2.8.33           2.8.34          5d   2.8.20        20d\n"
         )
         refute_includes output, "\e[38;2;255;154;162m2.8.34"
         refute_includes output, "\e[38;2;119;221;119m2.8.20"

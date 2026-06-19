@@ -19,6 +19,7 @@ module HomebrewAgeGate
     PASTEL_GREEN = "\e[38;2;119;221;119m"
     PASTEL_RED = "\e[38;2;255;154;162m"
     PASTEL_ORANGE = "\e[38;2;255;190;120m"
+    UNDERLINE = "\e[4m"
     RESET = "\e[0m"
 
     IGNORE_PREFIXES = [
@@ -122,7 +123,7 @@ module HomebrewAgeGate
         rows[name] = OutdatedTableRow.new(
           type: package.type,
           name: package.name,
-          current_version: current_versions_by_name.fetch(name, "unknown"),
+          current_version: current_version(name, package, current_versions_by_name),
           latest_version: format_version(package),
           age: format_age(age_result),
           age_result: age_result,
@@ -211,7 +212,7 @@ module HomebrewAgeGate
     def format_table_cells(cells)
       cells.map do |display, value, width|
         pad_cell(display, value, width)
-      end.join(" | ").rstrip + "\n"
+      end.join("  ").rstrip + "\n"
     end
 
     def pad_cell(display, value, width)
@@ -222,11 +223,29 @@ module HomebrewAgeGate
       format_version_value(package.version)
     end
 
+    def current_version(name, package, current_versions_by_name)
+      output_version = current_versions_by_name[name]
+      return output_version unless unknown_version?(output_version)
+
+      format_version_values(package.installed_versions)
+    end
+
+    def format_version_values(values)
+      versions = values.map { |value| format_version_value(value) }.reject { |value| unknown_version?(value) }.uniq
+      return "unknown" if versions.empty?
+
+      versions.join(", ")
+    end
+
     def format_version_value(value)
       version = value.to_s
       return "unknown" if version.empty?
 
       version.split(",", 2).first
+    end
+
+    def unknown_version?(value)
+      value.nil? || value.empty? || value == "unknown"
     end
 
     def format_age(age_result)
@@ -249,7 +268,7 @@ module HomebrewAgeGate
     def format_header_label(text, color:)
       return text unless color
 
-      "#{PASTEL_ORANGE}#{text}#{RESET}"
+      "#{PASTEL_ORANGE}#{UNDERLINE}#{text}#{RESET}"
     end
 
     def min_age_seconds
