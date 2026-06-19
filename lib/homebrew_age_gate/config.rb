@@ -49,7 +49,9 @@ module HomebrewAgeGate
     def self.default_path(env)
       home = env["HOME"]
       xdg = env["XDG_CONFIG_HOME"]
-      return File.join(xdg, "homebrew-age-gate", "config.json") if xdg && !xdg.empty?
+      if xdg && !xdg.empty? && !HomebrewEnv.project_local_path?(xdg)
+        return File.join(xdg, "homebrew-age-gate", "config.json")
+      end
       return nil unless home && !home.empty?
 
       File.join(home, ".config", "homebrew-age-gate", "config.json")

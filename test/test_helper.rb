@@ -60,7 +60,11 @@ module TestHelpers
       log_path = ENV.fetch("FAKE_BREW_LOG")
       entry = {
         "args" => ARGV,
-        "env" => ENV.select { |key, _| key.start_with?("HOMEBREW_NO_") || key.start_with?("HOMEBREW_AGE_GATE_") }
+        "env" => ENV.select do |key, _|
+          key == "HOMEBREW_USER_CONFIG_HOME" ||
+            key.start_with?("HOMEBREW_NO_") ||
+            key.start_with?("HOMEBREW_AGE_GATE_")
+        end
       }
       File.open(log_path, "a") { |file| file.puts(JSON.generate(entry)) }
 

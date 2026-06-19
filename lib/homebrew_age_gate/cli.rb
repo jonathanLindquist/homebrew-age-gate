@@ -94,10 +94,13 @@ module HomebrewAgeGate
       config = Config.load
       problems = []
 
-      problems << "real brew path is not executable: #{config.real_brew_path}" unless File.executable?(config.real_brew_path)
+      unless File.executable?(config.real_brew_path)
+        problems << "real brew path is not executable: #{display_path(config.real_brew_path)}"
+      end
       problems << "git is not available on PATH" unless executable_on_path?("git")
-      problems << "config path: #{config.path || "(none)"}"
-      problems << "ruby: #{RbConfig.ruby}"
+      problems << "config path: #{display_path(config.path)}"
+      problems << "homebrew config path: #{homebrew_trust_path}"
+      problems << "ruby: #{display_path(RbConfig.ruby)}"
 
       if problems.any? { |problem| problem.start_with?("real brew", "git") }
         problems.each { |problem| warn problem }
@@ -131,6 +134,17 @@ module HomebrewAgeGate
       ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).any? do |dir|
         File.executable?(File.join(dir, name))
       end
+    end
+
+    def self.display_path(path)
+      HomebrewEnv.display_path(path)
+    end
+
+    def self.homebrew_trust_path
+      config_home = HomebrewEnv.user_config_home
+      return "(none)" unless config_home
+
+      "#{display_path(config_home)}/trust.json"
     end
 
     UpgradeBatch = Struct.new(:type, :packages, :flags, keyword_init: true) do

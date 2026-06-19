@@ -15,4 +15,4 @@ if ARGV.first == "outdated"
   exit HomebrewAgeGate::CLI.run_brew_outdated(ARGV)
 end
 
-exec(real_brew, *ARGV)
+exec(HomebrewAgeGate::HomebrewEnv.child_env, real_brew, *ARGV)

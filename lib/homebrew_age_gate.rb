@@ -2,6 +2,7 @@
 
 require_relative "homebrew_age_gate/arg_parser"
 require_relative "homebrew_age_gate/age_resolver"
+require_relative "homebrew_age_gate/homebrew_env"
 require_relative "homebrew_age_gate/brew_runner"
 require_relative "homebrew_age_gate/cli"
 require_relative "homebrew_age_gate/config"

@@ -721,5 +721,39 @@ class WrapperIntegrationTest < Minitest::Test
     end
   end
 
+  def test_wrapper_points_homebrew_trust_store_away_from_project_local_xdg_config_home
+    Dir.mktmpdir do |dir|
+      tap_repo, head = create_tap_repo(dir, "Formula/o/oldpkg.rb" => 10)
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: { "formulae" => [{ "name" => "oldpkg" }], "casks" => [] },
+        formulae: [
+          formula_info("oldpkg", tap: "homebrew/core", path: "Formula/o/oldpkg.rb", head: head)
+        ],
+        dry_run_output: "==> Would upgrade 1 outdated package:\nhomebrew/core/oldpkg 1.0 -> 2.0\n"
+      )
+
+      _stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade"],
+        env: fake_env(
+          dir,
+          fake_brew,
+          scenario_path,
+          log_path,
+          "XDG_CONFIG_HOME" => TestHelpers::ROOT
+        )
+      )
+
+      assert status.success?, stderr
+      read_log(log_path).each do |entry|
+        assert_equal File.join(dir, ".homebrew"), entry.fetch("env").fetch("HOMEBREW_USER_CONFIG_HOME")
+      end
+    end
+  end
+
   private
 end

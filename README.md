@@ -6,10 +6,10 @@ Default policy: upgrade only outdated formulae whose Homebrew definition last ch
 
 ## Install Shape
 
-Clone this repo and place its `bin` directory before Homebrew on `PATH`:
+Clone this repo and, from the checkout root, place its `bin` directory before Homebrew on `PATH`:
 
 ```sh
-export PATH="/path/to/homebrew-age-gate/bin:$PATH"
+export PATH="$PWD/bin:$PATH"
 ```
 
 The wrapper delegates non-upgrade commands to `/opt/homebrew/bin/brew` unchanged. Override that path with:
@@ -28,7 +28,7 @@ Verify that the wrapper is first on `PATH`:
 
 ```sh
 command -v brew
-# /path/to/homebrew-age-gate/bin/brew
+# should print this checkout's bin/brew
 ```
 
 Verify that the wrapper still delegates to real Homebrew for non-upgrade commands:
@@ -54,12 +54,16 @@ Package identities are canonical names such as `homebrew/core/jq` and `homebrew/
 
 Casks with `version: latest` are age-gated like any other package. No separate `latest` allowlist is needed.
 
+If `XDG_CONFIG_HOME` points inside this checkout, the wrapper falls back to `$HOME/.config/homebrew-age-gate/config.json` for its own config. Set `HOMEBREW_AGE_GATE_CONFIG` for an explicit path.
+
+Homebrew's own trust file stays Homebrew-owned. The wrapper does not create, copy, or read `trust.json`; when it invokes real Homebrew, it passes `HOMEBREW_USER_CONFIG_HOME` so Homebrew uses `$XDG_CONFIG_HOME/homebrew` for normal XDG setups and `$HOME/.homebrew` if `XDG_CONFIG_HOME` points inside this checkout. An explicitly set `HOMEBREW_USER_CONFIG_HOME` is preserved.
+
 ## Local Ruby Environment
 
 This project is pinned to Ruby `4.0.2` with `.ruby-version`. With `rbenv` initialized in your shell, entering the repo should select that Ruby automatically:
 
 ```sh
-cd /path/to/homebrew-age-gate
+cd "$HOME/projects/homebrew-age-gate"
 ruby -v
 ```
 
@@ -159,7 +163,7 @@ Use this only when you are ready for the wrapper to inspect real Homebrew state.
 1. Build the local Ruby environment:
 
    ```sh
-   cd /path/to/homebrew-age-gate
+   cd "$HOME/projects/homebrew-age-gate"
    bundle install
    ```
 

@@ -41,6 +41,17 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  def test_project_local_xdg_config_path_falls_back_to_home_config
+    Dir.mktmpdir do |dir|
+      config = HomebrewAgeGate::Config.load(
+        "HOME" => dir,
+        "XDG_CONFIG_HOME" => HomebrewAgeGate::HomebrewEnv.default_project_root
+      )
+
+      assert_equal File.join(dir, ".config", "homebrew-age-gate", "config.json"), config.path
+    end
+  end
+
   def test_env_overrides_real_brew_path
     Dir.mktmpdir do |dir|
       config = HomebrewAgeGate::Config.load(

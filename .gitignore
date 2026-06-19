@@ -1,6 +1,8 @@
 /.bundle/*
 !/.bundle/config
 /coverage/
+/homebrew/
+/pnpm/
 /tmp/
 /.ruby-lsp/
 /vendor/bundle/
