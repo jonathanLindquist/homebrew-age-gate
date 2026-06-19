@@ -42,6 +42,17 @@ This is only a report decoration. Normal `brew upgrade apidog` still asks Homebr
 - Never call bare real `brew upgrade`.
 - Never run real `brew update`.
 
+## Acceptance Criteria
+
+- [ ] `--latest-safe` is accepted by the wrapper for `brew upgrade` and is never passed to real Homebrew.
+- [ ] Without `--latest-safe`, existing too-new package blocking behavior is unchanged.
+- [ ] With `--latest-safe`, a too-new package is routed to a historical safe definition only when that definition can be proven from git history.
+- [ ] If no safe historical definition can be proven, the package remains blocked.
+- [ ] Unknown package age remains fail-closed unless explicitly allowed by unsafe config.
+- [ ] Dry-run expansion is still validated before any final upgrade command.
+- [ ] Final upgrade commands remain explicit allowlists and never call bare `brew upgrade`.
+- [ ] Verification uses fake-brew integration tests and does not run real `brew update` or real `brew upgrade`.
+
 ## Suggested Implementation Shape
 
 1. Extend `ArgParser` to recognize `--latest-safe` as a wrapper-only upgrade flag.

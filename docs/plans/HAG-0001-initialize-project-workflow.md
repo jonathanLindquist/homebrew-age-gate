@@ -21,6 +21,7 @@ This project uses an Obsidian Kanban board for visible ticket state and stores l
 - [x] Create `docs/agents/project-workflow.json`
 - [x] Create `docs/agents/ticket-sequence.json`
 - [x] Create `docs/plans/`
+- [x] Create ticket start and closeout workflow instructions
 - [x] Create Obsidian Kanban board
 - [x] Configure Kanban tag colors
 
@@ -29,6 +30,7 @@ This project uses an Obsidian Kanban board for visible ticket state and stores l
 - [x] Board path mirrors the project path relative to home
 - [x] Ticket sequence state is initialized
 - [x] Bootstrap card links to this plan
+- [x] Generated ticket workflow includes deterministic closeout rules
 - [x] Triage tags are Obsidian tags
 - [x] Kanban tag colors are present in board/template settings
 

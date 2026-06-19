@@ -55,7 +55,7 @@ For implementation work, record longform context, plans, and verification notes 
 
 ## Fetching Tickets
 
-When a skill says "fetch the relevant ticket", read the referenced card in the Obsidian Kanban board and then read its linked plan file under `docs/plans/`.
+When a skill says "fetch the relevant ticket", read the referenced card in the Obsidian Kanban board and then read its linked plan file under `docs/plans/`. Use the card and plan as the source of truth for scope, TODOs, Definition of Done, acceptance criteria, constraints, and verification.
 
 ## Pull Requests
 
