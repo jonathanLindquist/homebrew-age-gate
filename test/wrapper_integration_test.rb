@@ -46,7 +46,7 @@ class WrapperIntegrationTest < Minitest::Test
     end
   end
 
-  def test_preflight_blocks_young_dependency_and_does_not_run_final_upgrade
+  def test_preflight_defers_root_with_young_dependency_and_exits_zero_without_final_upgrade
     Dir.mktmpdir do |dir|
       tap_repo, head = create_tap_repo(
         dir,
@@ -70,6 +70,90 @@ class WrapperIntegrationTest < Minitest::Test
         "dry_run_output" => "==> Would upgrade 2 outdated packages:\nhomebrew/core/oldpkg 1.0 -> 2.0\nhomebrew/core/youngdep 1.0 -> 2.0\n"
       })
 
+      stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path)
+      )
+
+      assert status.success?, stderr
+      assert_match(/Deferred by dependency preflight:/, stdout)
+      assert_match(%r{homebrew/core/oldpkg blocked because dry-run includes blocked packages: homebrew/core/youngdep \(too new\)}, stdout)
+      assert_match(/no safely upgradeable packages after dependency preflight/, stdout)
+      calls = read_log(log_path).map { |entry| entry["args"] }
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/oldpkg"]
+      refute_includes calls, ["upgrade", "--formula", "homebrew/core/oldpkg"]
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
+  def test_preflight_salvages_green_formulae_not_blocked_by_young_dependencies
+    Dir.mktmpdir do |dir|
+      tap_repo, head = create_tap_repo(
+        dir,
+        "Formula/s/safe-root.rb" => 10,
+        "Formula/b/blocked-root.rb" => 10,
+        "Formula/y/youngdep.rb" => 1
+      )
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: {
+          "formulae" => [{ "name" => "safe-root" }, { "name" => "blocked-root" }],
+          "casks" => []
+        },
+        formulae: [
+          formula_info("safe-root", tap: "homebrew/core", path: "Formula/s/safe-root.rb", head: head),
+          formula_info("blocked-root", tap: "homebrew/core", path: "Formula/b/blocked-root.rb", head: head),
+          formula_info("youngdep", tap: "homebrew/core", path: "Formula/y/youngdep.rb", head: head)
+        ],
+        dry_run_outputs: {
+          "upgrade --formula --dry-run homebrew/core/safe-root homebrew/core/blocked-root" => "==> Would upgrade 3 outdated packages:\nhomebrew/core/safe-root 1.0 -> 2.0\nhomebrew/core/blocked-root 1.0 -> 2.0\nhomebrew/core/youngdep 1.0 -> 2.0\n",
+          "upgrade --formula --dry-run homebrew/core/safe-root" => "==> Would upgrade 1 outdated package:\nhomebrew/core/safe-root 1.0 -> 2.0\n",
+          "upgrade --formula --dry-run homebrew/core/blocked-root" => "==> Would upgrade 2 outdated packages:\nhomebrew/core/blocked-root 1.0 -> 2.0\nhomebrew/core/youngdep 1.0 -> 2.0\n"
+        }
+      )
+
+      stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path)
+      )
+
+      assert status.success?, stderr
+      assert_match(%r{homebrew/core/blocked-root blocked because dry-run includes blocked packages: homebrew/core/youngdep \(too new\)}, stdout)
+      calls = read_log(log_path).map { |entry| entry["args"] }
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/safe-root", "homebrew/core/blocked-root"]
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/safe-root"]
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/blocked-root"]
+      assert_includes calls, ["upgrade", "--formula", "homebrew/core/safe-root"]
+      refute_includes calls, ["upgrade", "--formula", "homebrew/core/blocked-root"]
+      refute calls.any? { |args| args.first == "upgrade" && !args.include?("--dry-run") && args.include?("homebrew/core/youngdep") }
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
+  def test_preflight_unknown_dependency_age_still_fails_closed
+    Dir.mktmpdir do |dir|
+      tap_repo, head = create_tap_repo(dir, "Formula/o/oldpkg.rb" => 10)
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: {
+          "formulae" => [{ "name" => "oldpkg" }],
+          "casks" => []
+        },
+        formulae: [
+          formula_info("oldpkg", tap: "homebrew/core", path: "Formula/o/oldpkg.rb", head: head),
+          formula_info("missingdep", tap: "homebrew/core", path: "Formula/m/missingdep.rb", head: head)
+        ],
+        dry_run_output: "==> Would upgrade 2 outdated packages:\nhomebrew/core/oldpkg 1.0 -> 2.0\nhomebrew/core/missingdep 1.0 -> 2.0\n"
+      )
+
       _stdout, stderr, status = run_bin(
         ["bin/brew", "upgrade"],
         env: fake_env(dir, fake_brew, scenario_path, log_path)
@@ -77,6 +161,7 @@ class WrapperIntegrationTest < Minitest::Test
 
       refute status.success?
       assert_match(/refusing to upgrade/, stderr)
+      assert_match(/homebrew\/core\/missingdep age=unknown/, stderr)
       calls = read_log(log_path).map { |entry| entry["args"] }
       assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/oldpkg"]
       refute_includes calls, ["upgrade", "--formula", "homebrew/core/oldpkg"]
@@ -334,6 +419,100 @@ class WrapperIntegrationTest < Minitest::Test
       calls = read_log(log_path).map { |entry| entry["args"] }
       assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/oldpkg"]
       refute_includes calls, ["upgrade", "--formula", "homebrew/core/oldpkg"]
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
+  def test_user_dry_run_reports_deferred_formulae_blocked_by_young_dependencies
+    Dir.mktmpdir do |dir|
+      tap_repo, head = create_tap_repo(
+        dir,
+        "Formula/s/safe-root.rb" => 10,
+        "Formula/b/blocked-root.rb" => 10,
+        "Formula/y/youngdep.rb" => 1
+      )
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: {
+          "formulae" => [{ "name" => "safe-root" }, { "name" => "blocked-root" }],
+          "casks" => []
+        },
+        formulae: [
+          formula_info("safe-root", tap: "homebrew/core", path: "Formula/s/safe-root.rb", head: head),
+          formula_info("blocked-root", tap: "homebrew/core", path: "Formula/b/blocked-root.rb", head: head),
+          formula_info("youngdep", tap: "homebrew/core", path: "Formula/y/youngdep.rb", head: head)
+        ],
+        dry_run_outputs: {
+          "upgrade --formula --dry-run homebrew/core/safe-root homebrew/core/blocked-root" => "==> Would upgrade 3 outdated packages:\nhomebrew/core/safe-root 1.0 -> 2.0\nhomebrew/core/blocked-root 1.0 -> 2.0\nhomebrew/core/youngdep 1.0 -> 2.0\n",
+          "upgrade --formula --dry-run homebrew/core/safe-root" => "==> Would upgrade 1 outdated package:\nhomebrew/core/safe-root 1.0 -> 2.0\n",
+          "upgrade --formula --dry-run homebrew/core/blocked-root" => "==> Would upgrade 2 outdated packages:\nhomebrew/core/blocked-root 1.0 -> 2.0\nhomebrew/core/youngdep 1.0 -> 2.0\n"
+        }
+      )
+
+      stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade", "--dry-run"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path)
+      )
+
+      assert status.success?, stderr
+      assert_match(/Would upgrade 1 outdated package:/, stdout)
+      assert_match(%r{homebrew/core/safe-root 1\.0 -> 2\.0}, stdout)
+      assert_match(%r{homebrew/core/blocked-root blocked because dry-run includes blocked packages: homebrew/core/youngdep \(too new\)}, stdout)
+      calls = read_log(log_path).map { |entry| entry["args"] }
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/safe-root"]
+      refute_includes calls, ["upgrade", "--formula", "homebrew/core/safe-root"]
+      refute calls.any? { |args| args.first == "upgrade" && !args.include?("--dry-run") }
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
+  def test_preflight_falls_back_to_single_root_final_upgrades_when_recombined_batch_is_blocked
+    Dir.mktmpdir do |dir|
+      tap_repo, head = create_tap_repo(
+        dir,
+        "Formula/l/left-root.rb" => 10,
+        "Formula/r/right-root.rb" => 10,
+        "Formula/y/youngdep.rb" => 1
+      )
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: {
+          "formulae" => [{ "name" => "left-root" }, { "name" => "right-root" }],
+          "casks" => []
+        },
+        formulae: [
+          formula_info("left-root", tap: "homebrew/core", path: "Formula/l/left-root.rb", head: head),
+          formula_info("right-root", tap: "homebrew/core", path: "Formula/r/right-root.rb", head: head),
+          formula_info("youngdep", tap: "homebrew/core", path: "Formula/y/youngdep.rb", head: head)
+        ],
+        dry_run_outputs: {
+          "upgrade --formula --dry-run homebrew/core/left-root homebrew/core/right-root" => "==> Would upgrade 3 outdated packages:\nhomebrew/core/left-root 1.0 -> 2.0\nhomebrew/core/right-root 1.0 -> 2.0\nhomebrew/core/youngdep 1.0 -> 2.0\n",
+          "upgrade --formula --dry-run homebrew/core/left-root" => "==> Would upgrade 1 outdated package:\nhomebrew/core/left-root 1.0 -> 2.0\n",
+          "upgrade --formula --dry-run homebrew/core/right-root" => "==> Would upgrade 1 outdated package:\nhomebrew/core/right-root 1.0 -> 2.0\n"
+        }
+      )
+
+      _stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path)
+      )
+
+      assert status.success?, stderr
+      calls = read_log(log_path).map { |entry| entry["args"] }
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/left-root", "homebrew/core/right-root"]
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/left-root"]
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/right-root"]
+      assert_includes calls, ["upgrade", "--formula", "homebrew/core/left-root"]
+      assert_includes calls, ["upgrade", "--formula", "homebrew/core/right-root"]
+      refute calls.any? { |args| args.first == "upgrade" && !args.include?("--dry-run") && args.include?("homebrew/core/youngdep") }
       assert_no_real_brew_calls!(log_path)
     end
   end

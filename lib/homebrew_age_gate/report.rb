@@ -25,6 +25,16 @@ module HomebrewAgeGate
       plan.skipped.each { |decision| io.puts "  #{format_decision(decision)}" }
     end
 
+    def self.print_deferred_preflight(deferred_roots, io: $stdout)
+      return if deferred_roots.empty?
+
+      io.puts "Deferred by dependency preflight:"
+      deferred_roots.each do |deferred_root|
+        io.puts "  #{deferred_root.package.canonical_name} blocked because dry-run includes blocked packages: #{blocked_summary(deferred_root.blocked_decisions)}"
+        deferred_root.blocked_decisions.each { |decision| io.puts "    #{format_decision(decision)}" }
+      end
+    end
+
     def self.format_decision(decision)
       package = decision.package
       age_result = decision.age_result
@@ -44,6 +54,10 @@ module HomebrewAgeGate
       return "definition_commit_date=unknown" unless age_result.known?
 
       "definition_commit_date=#{age_result.commit_time.utc.strftime("%Y-%m-%d")}"
+    end
+
+    def self.blocked_summary(decisions)
+      decisions.map { |decision| "#{decision.package.canonical_name} (#{decision.reason})" }.join(", ")
     end
   end
 end

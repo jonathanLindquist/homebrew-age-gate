@@ -44,37 +44,24 @@ module HomebrewAgeGate
 
       parsed = plan.parsed_args
       batches = upgrade_batches(parsed, plan.allowed_packages)
-      preflight_outputs = []
-
-      batches.each do |batch|
-        stdout, stderr, status = runner.capture_with_status(batch.preflight_args, env: planner.final_env)
-        unless status.success?
-          $stdout.write(stdout)
-          $stderr.write(stderr)
-          return status.exitstatus || 1
-        end
-
-        planned_names = DryRunParser.new.parse_package_names(stdout)
-        if planned_names.empty?
-          warn "homebrew-age-gate: could not parse any package names from brew upgrade --dry-run output; failing closed."
-          return 1
-        end
-
-        preflight_plan = planner.validate_planned_names(parsed, planned_names, type: batch.type)
-        if preflight_plan.skipped.any?
-          Report.print_blocked_preflight(preflight_plan)
-          return 1
-        end
-
-        preflight_outputs << stdout
+      preflight = UpgradePreflight.new(planner: planner, runner: runner, parsed_args: parsed).filter(batches)
+      if preflight.failure
+        return handle_preflight_failure(preflight.failure)
       end
 
-      if parsed.dry_run?
-        preflight_outputs.each { |output| $stdout.write(output) }
+      Report.print_deferred_preflight(preflight.deferred_roots)
+
+      if preflight.approved_batches.empty?
+        puts "homebrew-age-gate: no safely upgradeable packages after dependency preflight."
         return 0
       end
 
-      batches.each do |batch|
+      if parsed.dry_run?
+        preflight.dry_run_outputs.each { |output| $stdout.write(output) }
+        return 0
+      end
+
+      preflight.approved_batches.each do |batch|
         status = runner.system(batch.final_args, env: planner.final_env)
         return status unless status.zero?
       end
@@ -158,6 +145,19 @@ module HomebrewAgeGate
       def final_args
         ["upgrade"] + flags + names
       end
+
+      def with_packages(new_packages)
+        self.class.new(type: type, packages: new_packages, flags: flags)
+      end
+    end
+
+    def self.handle_preflight_failure(failure)
+      if failure.write_command_output
+        $stdout.write(failure.stdout)
+        $stderr.write(failure.stderr)
+      end
+      warn failure.message if failure.message
+      failure.exitstatus
     end
 
     def self.upgrade_batches(parsed, packages)
