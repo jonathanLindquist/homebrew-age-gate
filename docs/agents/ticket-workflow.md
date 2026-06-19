@@ -53,6 +53,28 @@ The utility adds one triage tag by default: `#needs-triage`. Agents may replace 
 
 Topic tags can be added with repeatable `--tag` flags or edited directly on the card.
 
+## Working Tickets
+
+Before implementing a ticket:
+
+1. Read the Kanban card from the board.
+2. Read the linked plan under `docs/plans/`.
+3. Identify the requested goal, constraints, TODO checklist, Definition of Done, acceptance criteria, and verification commands.
+4. If the card and plan conflict, stop and ask the user which source to update.
+
+## Completing Tickets
+
+A ticket is not complete until tracker closeout is done. Before saying the work is complete:
+
+1. Verify every Definition of Done or acceptance criterion, or explicitly record why an item is not applicable.
+2. Add a `## Completion Notes` or `## Outcome` section to the linked plan with implementation summary, commits, verification commands, and results.
+3. Move the Kanban card to `Completed`.
+4. Check applicable TODO and Definition of Done boxes on the card.
+5. Add concise commit and verification bullets to the card's `Implementation Details` when useful.
+6. Re-read the board and confirm the card is in `Completed` before the final response.
+
+If closeout is blocked by filesystem permissions, missing board access, or unresolved acceptance criteria, do not call the ticket complete. Report the blocker and leave the card out of `Completed`.
+
 ## Plan Files
 
 Plan files are long-lived project history. Keep them after completion.

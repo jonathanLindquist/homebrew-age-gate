@@ -74,6 +74,8 @@ Issues and implementation tickets live in the Obsidian Kanban board at `~/obsidi
 
 Create tickets with `new_project_ticket.mjs`; it allocates stable IDs, appends a Kanban card, creates a linked plan in `docs/plans/`, and advances `docs/agents/ticket-sequence.json`. See `docs/agents/ticket-workflow.md`.
 
+When working from a ticket, read the Kanban card and linked plan before implementation. Before calling the ticket complete, verify the Definition of Done or acceptance criteria, add completion notes to the linked plan, move the Kanban card to `Completed`, check applicable TODO/DoD boxes, and re-read the board to confirm the lane.
+
 ### Execution plans
 
 Execution plan Markdown files live under stable paths in `docs/plans/`, for example `docs/plans/HAG-0001-initialize-project-workflow.md`. Do not use lane-named status folders for new plans; old `docs/plans/Backlog/`, `docs/plans/In Progress/`, and `docs/plans/Completed/` folders are legacy.
