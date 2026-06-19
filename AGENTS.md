@@ -64,3 +64,16 @@ rbenv exec bundle exec rake test
 - Do commit `.bundle/config`, `.ruby-version`, `Gemfile`, and `Gemfile.lock`.
 - Keep instructions concise and project-specific; avoid putting personal preferences here.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and implementation tickets live in the Obsidian Kanban board at `~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md`; external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default five-role triage vocabulary as Obsidian tags with Kanban plugin colors configured globally in the vault: `#needs-triage`, `#needs-info`, `#ready-for-agent`, `#ready-for-human`, and `#wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repo: read root `CONTEXT.md` and `docs/adr/` if they exist. See `docs/agents/domain.md`.
