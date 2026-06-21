@@ -36,12 +36,30 @@ module TestHelpers
     }.merge(extra)
   end
 
-  def write_scenario(path, repos:, outdated:, formulae: [], casks: [], dry_run_output: "", dry_run_outputs: {}, dry_run_status: 0, upgrade_status: 0)
+  def write_scenario(
+    path,
+    repos:,
+    outdated:,
+    formulae: [],
+    casks: [],
+    outdated_text: "",
+    info_status: 0,
+    info_stderr: "",
+    info_failures: {},
+    dry_run_output: "",
+    dry_run_outputs: {},
+    dry_run_status: 0,
+    upgrade_status: 0
+  )
     write_json(path, {
       "repos" => repos,
       "outdated" => outdated,
       "formulae" => formulae,
       "casks" => casks,
+      "outdated_text" => outdated_text,
+      "info_status" => info_status,
+      "info_stderr" => info_stderr,
+      "info_failures" => info_failures,
       "dry_run_output" => dry_run_output,
       "dry_run_outputs" => dry_run_outputs,
       "dry_run_status" => dry_run_status,
@@ -92,6 +110,20 @@ module TestHelpers
         exit scenario.fetch("outdated_status", 0)
       when "info"
         names = names_after_info_args(ARGV)
+        info_failures = scenario.fetch("info_failures", {})
+        failed_name = names.find { |name| info_failures.key?(name) }
+        if failed_name
+          failure = info_failures.fetch(failed_name)
+          $stderr.write(failure.fetch("stderr", ""))
+          exit failure.fetch("status", 1)
+        end
+
+        info_status = scenario.fetch("info_status", 0)
+        unless info_status.zero?
+          $stderr.write(scenario.fetch("info_stderr", ""))
+          exit info_status
+        end
+
         formula_only = ARGV.include?("--formula") || ARGV.include?("--formulae")
         cask_only = ARGV.include?("--cask") || ARGV.include?("--casks")
         formulae = scenario.fetch("formulae", []).select do |item|

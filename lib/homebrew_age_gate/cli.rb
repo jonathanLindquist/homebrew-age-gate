@@ -82,7 +82,7 @@ module HomebrewAgeGate
         $stdout.write(stdout)
       else
         reporter = OutdatedReporter.new(config: config, runner: runner)
-        $stdout.write(reporter.annotate(stdout, color: color_enabled?))
+        $stdout.write(annotate_outdated_output(reporter, stdout))
       end
       status.success? ? 0 : (status.exitstatus || 1)
     rescue ConfigError, CommandError => e
@@ -117,6 +117,14 @@ module HomebrewAgeGate
 
     def self.json_output?(argv)
       argv.any? { |arg| arg == "--json" || arg.start_with?("--json=") }
+    end
+
+    def self.annotate_outdated_output(reporter, stdout)
+      reporter.annotate(stdout, color: color_enabled?)
+    rescue ConfigError, CommandError => e
+      warn "homebrew-age-gate: unable to annotate brew outdated output: #{e.message}"
+      warn e.stderr.to_s.strip if e.respond_to?(:stderr) && !e.stderr.to_s.strip.empty?
+      stdout
     end
 
     def self.color_enabled?(env = ENV, io = $stdout)

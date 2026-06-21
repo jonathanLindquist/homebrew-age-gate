@@ -397,6 +397,89 @@ class WrapperIntegrationTest < Minitest::Test
     end
   end
 
+  def test_outdated_falls_back_to_raw_output_when_annotation_info_lookup_fails
+    Dir.mktmpdir do |dir|
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: {},
+        outdated: { "formulae" => [{ "name" => "oldpkg" }], "casks" => [] },
+        outdated_text: "oldpkg 1.0 < 2.0\n",
+        info_status: 1,
+        info_stderr: "Error: No available formula with the name oldpkg.\n"
+      )
+
+      stdout, stderr, status = run_bin(
+        ["bin/brew", "outdated"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path)
+      )
+
+      assert status.success?, stderr
+      assert_equal "oldpkg 1.0 < 2.0\n", stdout
+      assert_includes stderr, "homebrew-age-gate: unable to annotate oldpkg"
+      assert_includes stderr, "Command failed: brew info --json=v2 oldpkg"
+      assert_includes stderr, "Error: No available formula with the name oldpkg."
+      assert_equal(
+        [["outdated"], ["info", "--json=v2", "oldpkg"], ["info", "--json=v2", "oldpkg"]],
+        read_log(log_path).map { |entry| entry["args"] }
+      )
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
+  def test_outdated_continues_annotating_other_packages_when_one_tap_is_untrusted
+    Dir.mktmpdir do |dir|
+      now = Time.utc(2026, 6, 18, 12, 0, 0)
+      tap_repo, head = create_tap_repo_at(dir, now, "Formula/o/oldpkg.rb" => 10)
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      trust_error = "Error: Refusing to load formula steipete/tap/codexbar from untrusted tap steipete/tap.\n" \
+        "Run `brew trust --formula steipete/tap/codexbar` or `brew trust steipete/tap` to trust it.\n"
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: {
+          "formulae" => [{ "name" => "oldpkg" }, { "name" => "codexbar" }],
+          "casks" => []
+        },
+        outdated_text: "oldpkg 1.0 < 2.0\ncodexbar 0.36.1 < 0.37.0\n",
+        formulae: [
+          formula_info("oldpkg", tap: "homebrew/core", path: "Formula/o/oldpkg.rb", head: head)
+        ],
+        info_failures: {
+          "codexbar" => { "status" => 1, "stderr" => trust_error }
+        }
+      )
+
+      stdout, stderr, status = run_bin(
+        ["bin/brew", "outdated"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path)
+      )
+
+      assert status.success?, stderr
+      assert_includes stdout, "codexbar 0.36.1 < 0.37.0"
+      assert_includes stdout, "Formulae\n"
+      assert_match(/oldpkg\s+1\.0\s+2\.0\.0\s+\d+d/, stdout)
+      assert_includes stderr, "homebrew-age-gate: unable to annotate codexbar"
+      assert_includes stderr, "brew trust steipete/tap"
+      refute_includes stderr, "Command failed: brew info --json=v2 oldpkg codexbar"
+      assert_equal(
+        [
+          ["outdated"],
+          ["info", "--json=v2", "oldpkg", "codexbar"],
+          ["info", "--json=v2", "oldpkg"],
+          ["info", "--json=v2", "codexbar"],
+          ["--repository", "homebrew/core"]
+        ],
+        read_log(log_path).map { |entry| entry["args"] }
+      )
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
   def test_outdated_annotates_stdout_when_brew_returns_nonzero
     Dir.mktmpdir do |dir|
       now = Time.utc(2026, 6, 18, 12, 0, 0)
@@ -789,6 +872,43 @@ class WrapperIntegrationTest < Minitest::Test
       read_log(log_path).each do |entry|
         assert_equal File.join(dir, ".homebrew"), entry.fetch("env").fetch("HOMEBREW_USER_CONFIG_HOME")
       end
+    end
+  end
+
+  def test_trust_pass_through_and_outdated_metadata_use_same_homebrew_config_home
+    Dir.mktmpdir do |dir|
+      tap_repo, head = create_tap_repo(dir, "Formula/o/oldpkg.rb" => 10)
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: { "formulae" => [{ "name" => "oldpkg" }], "casks" => [] },
+        outdated_text: "oldpkg 1.0 < 2.0\n",
+        formulae: [
+          formula_info("oldpkg", tap: "homebrew/core", path: "Formula/o/oldpkg.rb", head: head)
+        ]
+      )
+      env = fake_env(
+        dir,
+        fake_brew,
+        scenario_path,
+        log_path,
+        "XDG_CONFIG_HOME" => TestHelpers::ROOT
+      )
+
+      _trust_stdout, trust_stderr, trust_status = run_bin(["bin/brew", "trust", "steipete/tap"], env: env)
+      _outdated_stdout, outdated_stderr, outdated_status = run_bin(["bin/brew", "outdated"], env: env)
+
+      assert trust_status.success?, trust_stderr
+      assert outdated_status.success?, outdated_stderr
+      config_homes = read_log(log_path).map { |entry| entry.fetch("env").fetch("HOMEBREW_USER_CONFIG_HOME") }.uniq
+      assert_equal [File.join(dir, ".homebrew")], config_homes
+      assert_equal(
+        [["trust", "steipete/tap"], ["outdated"], ["info", "--json=v2", "oldpkg"], ["--repository", "homebrew/core"]],
+        read_log(log_path).map { |entry| entry["args"] }
+      )
     end
   end
 

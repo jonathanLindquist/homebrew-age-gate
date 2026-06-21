@@ -97,13 +97,34 @@ module HomebrewAgeGate
     end
 
     def fetch_packages_from_names(names)
-      output = runner.capture(["info", "--json=v2"] + names, env: frozen_env)
+      fetch_packages(["info", "--json=v2"] + names)
+    rescue CommandError
+      fetch_packages_individually(names)
+    end
+
+    def fetch_packages(args)
+      output = runner.capture(args, env: frozen_env)
       payload = JSON.parse(output)
       formulae = payload.fetch("formulae", []).map { |info| Package.from_formula_info(info) }
       casks = payload.fetch("casks", []).map { |info| Package.from_cask_info(info) }
       formulae + casks
     rescue JSON::ParserError => e
       raise ConfigError, "Unable to parse brew info JSON: #{e.message}"
+    end
+
+    def fetch_packages_individually(names)
+      names.flat_map do |name|
+        fetch_packages(["info", "--json=v2", name])
+      rescue ConfigError, CommandError => e
+        warn_annotation_failure(name, e)
+        []
+      end
+    end
+
+    def warn_annotation_failure(name, error)
+      warn "homebrew-age-gate: unable to annotate #{name}: #{error.message}"
+      stderr = error.stderr.to_s.strip if error.respond_to?(:stderr)
+      warn stderr unless stderr.to_s.empty?
     end
 
     def index_packages(packages)
