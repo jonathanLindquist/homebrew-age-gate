@@ -1,7 +1,7 @@
 # HAG-0003 Latest Safe Upgrade Handoff
 
 - Ticket: HAG-0003
-- Board: ~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md
+- Board: derived from `PROJECT_WORKFLOW_OBSIDIAN_VAULT` and this repo path relative to `$HOME`
 - Card: HAG-0003 Latest Safe Upgrade
 - Migrated: 2026-06-19
 
@@ -52,6 +52,22 @@ This is only a report decoration. Normal `brew upgrade apidog` still asks Homebr
 - [ ] Dry-run expansion is still validated before any final upgrade command.
 - [ ] Final upgrade commands remain explicit allowlists and never call bare `brew upgrade`.
 - [ ] Verification uses fake-brew integration tests and does not run real `brew update` or real `brew upgrade`.
+
+## Verification
+
+Run focused tests while implementing:
+
+```sh
+rbenv exec bundle exec ruby -Ilib -Itest test/arg_parser_test.rb
+rbenv exec bundle exec ruby -Ilib -Itest test/planner_test.rb
+rbenv exec bundle exec ruby -Ilib -Itest test/wrapper_integration_test.rb
+```
+
+Run the full suite before completion:
+
+```sh
+rbenv exec bundle exec rake test
+```
 
 ## Suggested Implementation Shape
 

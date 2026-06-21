@@ -4,15 +4,17 @@ Issues, implementation tickets, and project task state for this repo live in an 
 
 ## Board
 
-- Vault: `~/obsidian_notes/pocock-skills-vault`
-- Board: `~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md`
-- Template: `~/obsidian_notes/pocock-skills-vault/Z - Templates/Kanban Template.md`
-- Project path: `~/projects/utilities/homebrew-age-gate`
+- Vault env var: `PROJECT_WORKFLOW_OBSIDIAN_VAULT`
+- Board path strategy: derive from the vault root and this repository's path relative to `$HOME`
+- Board filename strategy: project title plus ` Kanban.md`
+- Kanban template path: `docs/agents/kanban-template.md`
+- Local env file: `.env` (ignored)
+- Env example: `.env.example`
 - Tool config: `docs/agents/project-workflow.json`
 - Ticket sequence: `docs/agents/ticket-sequence.json`
 - Execution plans: `docs/plans/*.md`
 
-The board path mirrors the project path relative to the home directory: `projects/utilities/homebrew-age-gate`.
+The board path mirrors the project path relative to the home directory. Keep the vault root in `.env`, not in committed docs.
 
 ## Lanes
 
@@ -32,7 +34,8 @@ Each ticket card should stay short and include:
 - `## Description` with all tags and a 1-3 sentence summary
 - `## Implementation Details` with `Ticket` and `Plan` bullets
 - `## TODO Checklist`
-- `## Definition of Done`
+- `## Acceptance Criteria`
+- `## Verification`
 
 Use this shape:
 
@@ -49,13 +52,28 @@ Use this shape:
 
     - Ticket: HAG-0002
     - Plan: docs/plans/HAG-0002-ticket-title.md
+
+    ## TODO Checklist
+    Items to implement:
+
+    - [ ] First ticket-specific implementation step
+
+    ## Acceptance Criteria
+
+    - [ ] Observable ticket-specific result required for completion
+
+    ## Verification
+
+    Checks to run:
+
+    - [ ] Ticket-specific command or review check
 ```
 
-For implementation work, record longform context, plans, and verification notes in the linked `docs/plans/*.md` file. Keep the card scannable.
+For implementation work, record longform context, plans, and completion notes in the linked `docs/plans/*.md` file. Keep the card scannable. A `#ready-for-agent` card must have ticket-specific TODO, Acceptance Criteria, and Verification items.
 
 ## Fetching Tickets
 
-When a skill says "fetch the relevant ticket", read the referenced card in the Obsidian Kanban board and then read its linked plan file under `docs/plans/`. Use the card and plan as the source of truth for scope, TODOs, Definition of Done, acceptance criteria, constraints, and verification.
+When a skill says "fetch the relevant ticket", read the referenced card in the Obsidian Kanban board and then read its linked plan file under `docs/plans/`. Use the card and plan as the source of truth for scope, TODOs, acceptance criteria, constraints, and verification.
 
 ## Pull Requests
 

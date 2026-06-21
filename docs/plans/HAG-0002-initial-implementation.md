@@ -1,7 +1,7 @@
 # HAG-0002 Initial Implementation
 
 - Ticket: HAG-0002
-- Board: ~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md
+- Board: derived from `PROJECT_WORKFLOW_OBSIDIAN_VAULT` and this repo path relative to `$HOME`
 - Card: HAG-0002 Initial Implementation
 - Migrated: 2026-06-19
 

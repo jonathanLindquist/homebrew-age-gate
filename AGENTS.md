@@ -68,13 +68,13 @@ rbenv exec bundle exec rake test
 
 ### Issue tracker
 
-Issues and implementation tickets live in the Obsidian Kanban board at `~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md`; external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+Issues and implementation tickets live in the Obsidian Kanban board derived from `$PROJECT_WORKFLOW_OBSIDIAN_VAULT` and this repository's path relative to `$HOME`. External PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
 
 ### Ticket workflow
 
-Create tickets with `new_project_ticket.mjs`; it allocates stable IDs, appends a Kanban card, creates a linked plan in `docs/plans/`, and advances `docs/agents/ticket-sequence.json`. See `docs/agents/ticket-workflow.md`.
+Create tickets with `new_project_ticket.mjs`; it allocates stable IDs, appends a Kanban card, creates a linked plan in `docs/plans/`, and advances `docs/agents/ticket-sequence.json`. Use repeatable `--todo`, `--acceptance`, and `--verification` fields when a ticket is ready for agent implementation. Update ticket status with `update_project_ticket.mjs` after code changes and during closeout. See `docs/agents/ticket-workflow.md`.
 
-When working from a ticket, read the Kanban card and linked plan before implementation. Before calling the ticket complete, verify the Definition of Done or acceptance criteria, add completion notes to the linked plan, move the Kanban card to `Completed`, check applicable TODO/DoD boxes, and re-read the board to confirm the lane.
+When working from a ticket, read the Kanban card and linked plan before implementation. After making implementation changes, move the card to `In Progress` unless it is already there. Before calling the ticket complete, verify the acceptance criteria and verification items; add completion notes to the linked plan; move the Kanban card to `Completed`; check applicable TODO, Acceptance Criteria, and Verification boxes; and re-read the board to confirm the lane.
 
 ### Execution plans
 

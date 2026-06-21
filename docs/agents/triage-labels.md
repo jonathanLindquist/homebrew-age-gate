@@ -2,7 +2,7 @@
 
 The skills speak in terms of five canonical triage roles. This file maps those roles to the strings used in this repo's issue tracker.
 
-| Label in mattpocock/skills | Obsidian tag | Kanban color | Meaning |
+| Skill role | Obsidian tag | Kanban color | Meaning |
 | --- | --- | --- | --- |
 | `needs-triage` | `#needs-triage` | Amber | Maintainer needs to evaluate this issue |
 | `needs-info` | `#needs-info` | Blue | Waiting on reporter for more information |

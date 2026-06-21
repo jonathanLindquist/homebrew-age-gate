@@ -1,7 +1,7 @@
 # HAG-0001 Initialize Project Workflow
 
 - Ticket: HAG-0001
-- Board: ~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md
+- Board: derived from `PROJECT_WORKFLOW_OBSIDIAN_VAULT` and this repo path relative to `$HOME`
 - Card: HAG-0001 Initialize Project Workflow
 - Created: 2026-06-19
 
@@ -20,6 +20,8 @@ This project uses an Obsidian Kanban board for visible ticket state and stores l
 - [x] Create `docs/agents/*`
 - [x] Create `docs/agents/project-workflow.json`
 - [x] Create `docs/agents/ticket-sequence.json`
+- [x] Create `.env.example` and ignored `.env` local vault config
+- [x] Create `docs/agents/kanban-template.md`
 - [x] Create `docs/plans/`
 - [x] Create ticket start and closeout workflow instructions
 - [x] Create Obsidian Kanban board
@@ -28,6 +30,8 @@ This project uses an Obsidian Kanban board for visible ticket state and stores l
 ## Verification
 
 - [x] Board path mirrors the project path relative to home
+- [x] Vault root is stored in ignored `.env`
+- [x] `.env.example` documents `PROJECT_WORKFLOW_OBSIDIAN_VAULT`
 - [x] Ticket sequence state is initialized
 - [x] Bootstrap card links to this plan
 - [x] Generated ticket workflow includes deterministic closeout rules
@@ -36,4 +40,4 @@ This project uses an Obsidian Kanban board for visible ticket state and stores l
 
 ## Outcome
 
-Project workflow initialized.
+Project workflow initialized and refreshed to the current setup-project-workflow generated pattern.

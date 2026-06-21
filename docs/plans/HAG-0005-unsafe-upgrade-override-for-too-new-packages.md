@@ -1,7 +1,7 @@
 # HAG-0005 Unsafe Upgrade Override for Too-New Packages
 
 - Ticket: HAG-0005
-- Board: ~/obsidian_notes/pocock-skills-vault/projects/utilities/homebrew-age-gate/Homebrew Age Gate Kanban.md
+- Board: derived from `PROJECT_WORKFLOW_OBSIDIAN_VAULT` and this repo path relative to `$HOME`
 - Card: HAG-0005 Unsafe Upgrade Override for Too-New Packages
 - Created: 2026-06-19
 
@@ -61,4 +61,4 @@ rbenv exec bundle exec rake test
 
 ## Outcome
 
-Fill in when completed with implementation summary, commits, verification commands, and results. Move the Kanban card to Completed only after this is filled in and the Definition of Done is checked.
+Fill in when completed with implementation summary, commits, verification commands, and results. Move the Kanban card to Completed only after this is filled in and applicable TODO, Acceptance Criteria, and Verification boxes are checked.
