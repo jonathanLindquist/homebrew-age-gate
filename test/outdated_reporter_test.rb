@@ -9,6 +9,7 @@ class OutdatedReporterTest < Minitest::Test
       tap_repo, head = create_tap_repo_at(
         dir,
         now,
+        "Formula/b/boundarypkg.rb" => 7,
         "Formula/o/oldpkg.rb" => 10,
         "Formula/y/youngpkg.rb" => 1
       )
@@ -18,8 +19,9 @@ class OutdatedReporterTest < Minitest::Test
       write_scenario(
         scenario_path,
         repos: { "homebrew/core" => tap_repo },
-        outdated: { "formulae" => [{ "name" => "oldpkg" }, { "name" => "youngpkg" }], "casks" => [] },
+        outdated: { "formulae" => [{ "name" => "boundarypkg" }, { "name" => "oldpkg" }, { "name" => "youngpkg" }], "casks" => [] },
         formulae: [
+          formula_info("boundarypkg", tap: "homebrew/core", path: "Formula/b/boundarypkg.rb", head: head),
           formula_info("oldpkg", tap: "homebrew/core", path: "Formula/o/oldpkg.rb", head: head),
           formula_info("youngpkg", tap: "homebrew/core", path: "Formula/y/youngpkg.rb", head: head)
         ]
@@ -35,14 +37,15 @@ class OutdatedReporterTest < Minitest::Test
       )
 
       with_env("FAKE_BREW_SCENARIO" => scenario_path, "FAKE_BREW_LOG" => log_path) do
-        output = reporter.annotate("youngpkg 1.0 < 2.0\noldpkg 1.0 < 2.0\n", color: true)
+        output = reporter.annotate("youngpkg 1.0 < 2.0\noldpkg 1.0 < 2.0\nboundarypkg 1.0 < 2.0\n", color: true)
 
         assert_includes output, "Formulae\n"
         assert_includes output, "\e[38;2;255;190;120m\e[4mname\e[0m"
         assert_includes output, "\e[38;2;255;190;120m\e[4mcurrent version\e[0m"
         assert_includes output, "\e[38;2;255;190;120m\e[4mlatest version\e[0m"
-        assert_includes output, "\e[38;2;119;221;119moldpkg\e[0m    1.0              2.0.0           10d\n"
-        assert_includes output, "\e[38;2;255;154;162myoungpkg\e[0m  1.0              2.0.0           1d\n"
+        assert_includes output, "\e[38;2;255;154;162mboundarypkg\e[0m  1.0              2.0.0           7d\n"
+        assert_includes output, "\e[38;2;119;221;119moldpkg\e[0m       1.0              2.0.0           10d\n"
+        assert_includes output, "\e[38;2;255;154;162myoungpkg\e[0m     1.0              2.0.0           1d\n"
         assert_operator output.index("oldpkg"), :<, output.index("youngpkg")
         refute_includes output, "\e[38;2;119;221;119m2.0.0"
         refute_includes output, "\e[38;2;255;190;120m2.0.0"

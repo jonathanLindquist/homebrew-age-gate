@@ -2,7 +2,7 @@
 
 `homebrew-age-gate` is a PATH-level `brew` wrapper that delays `brew upgrade` until each outdated Homebrew package definition has been present in the tap git history for a configured minimum age.
 
-Default policy: upgrade only outdated formulae whose Homebrew definition last changed at least 7 days ago. Casks are only considered for explicit cask upgrade commands.
+Default policy: upgrade only outdated formulae whose Homebrew definition last changed more than 7 days ago. A package definition exactly at the configured age threshold is still too new. Casks are only considered for explicit cask upgrade commands.
 
 ## Install Shape
 

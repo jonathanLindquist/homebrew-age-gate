@@ -30,7 +30,7 @@ class WrapperIntegrationTest < Minitest::Test
       assert status.success?, stderr
       assert_match(/homebrew-age-gate plan/, stdout)
       expected_date = `git -C #{tap_repo.shellescape} log -1 --format=%cs #{head.shellescape} -- Formula/o/oldpkg.rb`.strip
-      assert_match(/homebrew\/core\/oldpkg age=\d+\.\d{2}d definition_commit_date=#{expected_date} reason=old enough/, stdout)
+      assert_match(/homebrew\/core\/oldpkg age=\d+d definition_commit_date=#{expected_date} reason=old enough/, stdout)
 
       calls = read_log(log_path)
       assert_includes calls.map { |entry| entry["args"] }, ["outdated", "--json=v2", "--formula"]
@@ -81,6 +81,53 @@ class WrapperIntegrationTest < Minitest::Test
     end
   end
 
+  def test_upgrade_plan_output_separates_and_styles_allowed_and_skipped_groups
+    Dir.mktmpdir do |dir|
+      tap_repo, head = create_tap_repo(
+        dir,
+        "Formula/o/oldpkg.rb" => 10,
+        "Formula/y/youngpkg.rb" => 1
+      )
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: {
+          "formulae" => [{ "name" => "oldpkg" }, { "name" => "youngpkg" }],
+          "casks" => []
+        },
+        formulae: [
+          formula_info("oldpkg", tap: "homebrew/core", path: "Formula/o/oldpkg.rb", head: head),
+          formula_info("youngpkg", tap: "homebrew/core", path: "Formula/y/youngpkg.rb", head: head)
+        ],
+        dry_run_output: "==> Would upgrade 1 outdated package:\nhomebrew/core/oldpkg 1.0 -> 2.0\n"
+      )
+
+      stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade"],
+        env: fake_env(
+          dir,
+          fake_brew,
+          scenario_path,
+          log_path,
+          "HOMEBREW_AGE_GATE_COLOR" => "always"
+        )
+      )
+
+      assert status.success?, stderr
+      green = Regexp.escape(HomebrewAgeGate::Report::PASTEL_GREEN)
+      red = Regexp.escape(HomebrewAgeGate::Report::PASTEL_RED)
+      reset = Regexp.escape(HomebrewAgeGate::Report::RESET)
+      assert_match(
+        %r{\Ahomebrew-age-gate plan\n\n\e\[1;97mAllowed:\e\[0m\n  #{green}homebrew/core/oldpkg#{reset} .*\n\n\e\[1;97mSkipped:\e\[0m\n  #{red}homebrew/core/youngpkg#{reset} }m,
+        stdout
+      )
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
   def test_preflight_defers_root_with_young_dependency_and_exits_zero_without_final_upgrade
     Dir.mktmpdir do |dir|
       tap_repo, head = create_tap_repo(
@@ -117,6 +164,67 @@ class WrapperIntegrationTest < Minitest::Test
       calls = read_log(log_path).map { |entry| entry["args"] }
       assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/oldpkg"]
       refute_includes calls, ["upgrade", "--formula", "homebrew/core/oldpkg"]
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
+  def test_preflight_reports_each_deferred_root_and_colors_deferred_names
+    Dir.mktmpdir do |dir|
+      tap_repo, head = create_tap_repo(
+        dir,
+        "Formula/l/left-root.rb" => 10,
+        "Formula/r/right-root.rb" => 10,
+        "Formula/l/left-youngdep.rb" => 1,
+        "Formula/r/right-youngdep.rb" => 1
+      )
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: {
+          "formulae" => [{ "name" => "left-root" }, { "name" => "right-root" }],
+          "casks" => []
+        },
+        formulae: [
+          formula_info("left-root", tap: "homebrew/core", path: "Formula/l/left-root.rb", head: head),
+          formula_info("right-root", tap: "homebrew/core", path: "Formula/r/right-root.rb", head: head),
+          formula_info("left-youngdep", tap: "homebrew/core", path: "Formula/l/left-youngdep.rb", head: head),
+          formula_info("right-youngdep", tap: "homebrew/core", path: "Formula/r/right-youngdep.rb", head: head)
+        ],
+        dry_run_outputs: {
+          "upgrade --formula --dry-run homebrew/core/left-root homebrew/core/right-root" => "==> Would upgrade 4 outdated packages:\nhomebrew/core/left-root 1.0 -> 2.0\nhomebrew/core/right-root 1.0 -> 2.0\nhomebrew/core/left-youngdep 1.0 -> 2.0\nhomebrew/core/right-youngdep 1.0 -> 2.0\n",
+          "upgrade --formula --dry-run homebrew/core/left-root" => "==> Would upgrade 2 outdated packages:\nhomebrew/core/left-root 1.0 -> 2.0\nhomebrew/core/left-youngdep 1.0 -> 2.0\n",
+          "upgrade --formula --dry-run homebrew/core/right-root" => "==> Would upgrade 2 outdated packages:\nhomebrew/core/right-root 1.0 -> 2.0\nhomebrew/core/right-youngdep 1.0 -> 2.0\n"
+        }
+      )
+
+      stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade"],
+        env: fake_env(
+          dir,
+          fake_brew,
+          scenario_path,
+          log_path,
+          "HOMEBREW_AGE_GATE_COLOR" => "always"
+        )
+      )
+
+      assert status.success?, stderr
+      green = HomebrewAgeGate::Report::PASTEL_GREEN
+      red = HomebrewAgeGate::Report::PASTEL_RED
+      reset = HomebrewAgeGate::Report::RESET
+      assert_equal 2, stdout.scan(/blocked because dry-run includes blocked packages/).length
+      assert_includes stdout, "#{green}homebrew/core/left-root#{reset} blocked because dry-run includes blocked packages: #{red}homebrew/core/left-youngdep#{reset} (too new)"
+      assert_includes stdout, "#{green}homebrew/core/right-root#{reset} blocked because dry-run includes blocked packages: #{red}homebrew/core/right-youngdep#{reset} (too new)"
+      assert_includes stdout, "#{red}homebrew/core/left-youngdep#{reset} #{HomebrewAgeGate::Report::BOLD_WHITE}age#{reset}="
+      assert_includes stdout, "#{red}homebrew/core/right-youngdep#{reset} #{HomebrewAgeGate::Report::BOLD_WHITE}age#{reset}="
+      assert_match(/no safely upgradeable packages after dependency preflight/, stdout)
+      calls = read_log(log_path).map { |entry| entry["args"] }
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/left-root"]
+      assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/right-root"]
+      refute calls.any? { |args| args.first == "upgrade" && !args.include?("--dry-run") }
       assert_no_real_brew_calls!(log_path)
     end
   end

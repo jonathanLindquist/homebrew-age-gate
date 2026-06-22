@@ -91,6 +91,44 @@ class PlannerTest < Minitest::Test
     end
   end
 
+  def test_exact_min_age_boundary_is_still_too_new
+    Dir.mktmpdir do |dir|
+      now = Time.utc(2026, 6, 18, 12, 0, 0)
+      tap_repo, head = create_tap_repo_at(
+        dir,
+        now,
+        "Formula/e/exact-boundary.rb" => 7,
+        "Formula/o/older-boundary.rb" => 7 + (1.0 / 86_400)
+      )
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: { "formulae" => [{ "name" => "exact-boundary" }, { "name" => "older-boundary" }], "casks" => [] },
+        formulae: [
+          formula_info("exact-boundary", tap: "homebrew/core", path: "Formula/e/exact-boundary.rb", head: head),
+          formula_info("older-boundary", tap: "homebrew/core", path: "Formula/o/older-boundary.rb", head: head)
+        ]
+      )
+
+      config = HomebrewAgeGate::Config.load(
+        "HOME" => dir,
+        "HOMEBREW_AGE_GATE_REAL_BREW" => fake_brew
+      )
+      runner = HomebrewAgeGate::BrewRunner.new(fake_brew)
+      planner = HomebrewAgeGate::Planner.new(config: config, runner: runner, now: now)
+
+      with_env("FAKE_BREW_SCENARIO" => scenario_path, "FAKE_BREW_LOG" => log_path) do
+        plan = planner.initial_plan(["upgrade"])
+        assert_equal ["homebrew/core/older-boundary"], plan.allowed_packages.map(&:canonical_name)
+        assert_equal ["homebrew/core/exact-boundary"], plan.skipped.map { |decision| decision.package.canonical_name }
+        assert_equal ["too new"], plan.skipped.map(&:reason)
+      end
+    end
+  end
+
   def test_unknown_age_is_skipped_by_default
     Dir.mktmpdir do |dir|
       fake_brew = make_fake_brew(dir)

@@ -278,7 +278,7 @@ module HomebrewAgeGate
     def format_label(text, age_result, color:)
       return text unless color
 
-      color_code = if age_result.known? && age_result.age_seconds >= min_age_seconds
+      color_code = if age_result.known? && age_result.age_seconds > min_age_seconds
         PASTEL_GREEN
       else
         PASTEL_RED

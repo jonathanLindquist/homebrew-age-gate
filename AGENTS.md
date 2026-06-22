@@ -4,7 +4,7 @@
 
 `homebrew-age-gate` is a PATH-level `brew` wrapper. Its critical guarantee is that `brew upgrade` must only upgrade Homebrew formulae/casks whose Homebrew package definition is old enough under the configured policy.
 
-Default policy: package definitions must be at least 7 days old. Age means the last git committer timestamp for the Homebrew formula/cask definition file, not upstream release age.
+Default policy: package definitions must be more than 7 days old. A definition exactly at the configured age threshold is still too new. Age means the last git committer timestamp for the Homebrew formula/cask definition file, not upstream release age.
 
 ## Core Safety Rules
 

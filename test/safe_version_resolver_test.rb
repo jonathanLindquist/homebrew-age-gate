@@ -49,6 +49,22 @@ class SafeVersionResolverTest < Minitest::Test
     assert_equal "4.5.6", safe_version.version
   end
 
+  def test_resolves_safe_version_when_current_version_is_exactly_min_age
+    safe_version = resolve_safe_version_from_history(
+      "Formula/b/boundary.rb",
+      [
+        [20, "class Boundary < Formula\n  url \"https://example.com/releases/boundary-1.2.3.tar.gz\"\nend\n"],
+        [7, "class Boundary < Formula\n  url \"https://example.com/releases/boundary-1.3.0.tar.gz\"\nend\n"]
+      ],
+      package_type: :formula,
+      package_name: "boundary",
+      current_version: "1.3.0",
+      current_age_days: 7
+    )
+
+    assert_equal "1.2.3", safe_version.version
+  end
+
   def test_omits_safe_version_when_history_has_no_semantic_version
     safe_version = resolve_safe_version_from_history(
       "Formula/n/nope.rb",
@@ -81,7 +97,7 @@ class SafeVersionResolverTest < Minitest::Test
 
   private
 
-  def resolve_safe_version_from_history(path, commits, package_type:, package_name:, current_version:)
+  def resolve_safe_version_from_history(path, commits, package_type:, package_name:, current_version:, current_age_days: 5)
     Dir.mktmpdir do |dir|
       now = Time.utc(2026, 6, 18, 12, 0, 0)
       tap_repo, head = create_tap_repo_history_at(dir, now, path, commits)
@@ -105,8 +121,8 @@ class SafeVersionResolverTest < Minitest::Test
       )
       current_age = HomebrewAgeGate::AgeResult.new(
         known: true,
-        commit_time: now - (5 * 86_400),
-        age_seconds: 5 * 86_400,
+        commit_time: now - (current_age_days * 86_400),
+        age_seconds: current_age_days * 86_400,
         reason: nil
       )
 

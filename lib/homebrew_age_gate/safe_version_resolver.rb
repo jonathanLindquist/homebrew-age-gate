@@ -24,7 +24,7 @@ module HomebrewAgeGate
 
     def resolve(package, current_age_result)
       return nil unless current_age_result&.known?
-      return nil if current_age_result.age_seconds >= min_age_seconds
+      return nil if current_age_result.age_seconds > min_age_seconds
 
       cache_key = [package.tap, package.tap_git_head, package.source_path, package.source_checksum]
       return @safe_version_cache[cache_key] if @safe_version_cache.key?(cache_key)
@@ -72,7 +72,7 @@ module HomebrewAgeGate
     end
 
     def latest_safe_commit(repo, revision, path)
-      cutoff_time = Time.at(now.to_i - min_age_seconds).utc.iso8601
+      cutoff_time = Time.at(now.to_i - min_age_seconds - 1).utc.iso8601
       sha = git_rev_list_before(repo, revision, path, cutoff_time)
       return nil if blank?(sha)
 

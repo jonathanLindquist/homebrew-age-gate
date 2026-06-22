@@ -162,7 +162,7 @@ module HomebrewAgeGate
       end
 
       min_age_seconds = config.min_age_days * 86_400
-      if age.age_seconds >= min_age_seconds
+      if age.age_seconds > min_age_seconds
         Decision.new(package: package, allowed: true, reason: "old enough", age_result: age)
       else
         Decision.new(package: package, allowed: false, reason: "too new", age_result: age)

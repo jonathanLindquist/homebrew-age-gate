@@ -17,11 +17,12 @@ module HomebrewAgeGate
       end
     end
 
-    def initialize(planner:, runner:, parsed_args:)
+    def initialize(planner:, runner:, parsed_args:, color: false)
       @planner = planner
       @runner = runner
       @parsed_args = parsed_args
       @parser = DryRunParser.new
+      @color = color
     end
 
     def filter(batches)
@@ -64,7 +65,7 @@ module HomebrewAgeGate
 
     private
 
-    attr_reader :planner, :runner, :parsed_args, :parser
+    attr_reader :planner, :runner, :parsed_args, :parser, :color
 
     def isolate(batch)
       approved_checks = []
@@ -164,7 +165,7 @@ module HomebrewAgeGate
 
     def blocked_plan_message(plan)
       lines = ["homebrew-age-gate: refusing to upgrade because the frozen dry-run plan includes blocked packages."]
-      plan.skipped.each { |decision| lines << "  #{Report.format_decision(decision)}" }
+      plan.skipped.each { |decision| lines << "  #{Report.format_decision(decision, color: color)}" }
       "#{lines.join("\n")}\n"
     end
   end

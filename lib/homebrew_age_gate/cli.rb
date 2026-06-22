@@ -14,7 +14,8 @@ module HomebrewAgeGate
         runner = BrewRunner.new(config.real_brew_path)
         planner = Planner.new(config: config, runner: runner)
         plan = planner.initial_plan(["upgrade"] + upgrade_args)
-        Report.print_plan(plan)
+        color = color_enabled?
+        Report.print_plan(plan, color: color)
         0
       when "doctor"
         run_doctor
@@ -35,7 +36,8 @@ module HomebrewAgeGate
       runner = BrewRunner.new(config.real_brew_path)
       planner = Planner.new(config: config, runner: runner)
       plan = planner.initial_plan(argv)
-      Report.print_plan(plan)
+      color = color_enabled?
+      Report.print_plan(plan, color: color)
 
       if plan.allowed.empty?
         puts "homebrew-age-gate: no eligible packages to upgrade."
@@ -44,12 +46,12 @@ module HomebrewAgeGate
 
       parsed = plan.parsed_args
       batches = upgrade_batches(parsed, plan.allowed_packages)
-      preflight = UpgradePreflight.new(planner: planner, runner: runner, parsed_args: parsed).filter(batches)
+      preflight = UpgradePreflight.new(planner: planner, runner: runner, parsed_args: parsed, color: color).filter(batches)
       if preflight.failure
         return handle_preflight_failure(preflight.failure)
       end
 
-      Report.print_deferred_preflight(preflight.deferred_roots)
+      Report.print_deferred_preflight(preflight.deferred_roots, color: color)
 
       if preflight.approved_batches.empty?
         puts "homebrew-age-gate: no safely upgradeable packages after dependency preflight."
