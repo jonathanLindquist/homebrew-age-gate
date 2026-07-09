@@ -87,3 +87,7 @@ Use the default five-role triage vocabulary as Obsidian tags configured with Kan
 ### Domain docs
 
 This is a single-context repo: read root `CONTEXT.md` and `docs/adr/` if they exist. See `docs/agents/domain.md`.
+
+### Verify, don't Trust
+
+When producing an analysis or summarization of something gleaned from a resource (web page, MCP call, user-provided document), do not trust a memory or retained summary of that resource. Always retrieve the resource afresh and compare it to the summary or analysis you are preparing. When comparing, do so in an adversarial way: you are fact-checking work that you suspect at the start contains errors and hallucinations.
