@@ -6,7 +6,7 @@ Issues, implementation tickets, and project task state for this repo live in an 
 
 - Vault env var: `PROJECT_WORKFLOW_OBSIDIAN_VAULT`
 - Board path strategy: derive from the vault root and this repository's path relative to `$HOME`
-- Board filename strategy: project title plus ` Kanban.md`
+- Board filename strategy: exact project folder name plus `-kanban.md`
 - Kanban template path: `docs/agents/kanban-template.md`
 - Local env file: `.env` (ignored)
 - Env example: `.env.example`
