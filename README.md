@@ -142,10 +142,10 @@ rbenv exec bundle install
 rbenv exec bundle exec rake test
 ```
 
-Expected result:
+Expected result: each test file prints its own summary line, and every line ends with:
 
 ```text
-55 runs, 372 assertions, 0 failures, 0 errors, 0 skips
+0 failures, 0 errors, 0 skips
 ```
 
 Run targeted test files while developing:

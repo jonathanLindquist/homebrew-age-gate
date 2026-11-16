@@ -429,10 +429,10 @@ class WrapperIntegrationTest < Minitest::Test
 
   def test_outdated_prints_age_gate_dates_with_color
     Dir.mktmpdir do |dir|
-      now = Time.utc(2026, 6, 18, 12, 0, 0)
-      tap_repo, head = create_tap_repo_at(
+      # `brew outdated` annotation measures age against the real clock, so the
+      # fixture commits must be relative to now, not a fixed date.
+      tap_repo, head = create_tap_repo(
         dir,
-        now,
         "Formula/o/oldpkg.rb" => 10,
         "Formula/y/youngpkg.rb" => 1
       )
