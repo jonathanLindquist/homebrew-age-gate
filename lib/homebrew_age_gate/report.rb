@@ -4,6 +4,7 @@ module HomebrewAgeGate
   class Report
     PASTEL_GREEN = "\e[38;2;119;221;119m"
     PASTEL_RED = "\e[38;2;255;154;162m"
+    PASTEL_YELLOW = "\e[38;2;253;222;125m"
     BOLD_WHITE = "\e[1;97m"
     RESET = "\e[0m"
 
@@ -33,6 +34,13 @@ module HomebrewAgeGate
       plan.skipped.each { |decision| io.puts "  #{format_decision(decision, color: color)}" }
     end
 
+    def self.print_unsafe_approvals(decisions, io: $stdout, color: false)
+      return if decisions.empty?
+
+      io.puts "Age gate bypassed with --unsafe:"
+      decisions.each { |decision| io.puts "  #{format_decision(decision, color: color)}" }
+    end
+
     def self.print_deferred_preflight(deferred_roots, io: $stdout, color: false)
       return if deferred_roots.empty?
 
@@ -55,7 +63,7 @@ module HomebrewAgeGate
       else
         "not checked"
       end
-      package_name = format_package_name(package.canonical_name, allowed: decision.allowed?, color: color)
+      package_name = format_package_name(package.canonical_name, allowed: decision.allowed?, unsafe: decision.unsafe?, color: color)
       [
         package_name,
         format_key_value("age", age, color: color),
@@ -98,10 +106,14 @@ module HomebrewAgeGate
       "#{BOLD_WHITE}#{field}#{RESET}"
     end
 
-    def self.format_package_name(name, allowed:, color:)
+    def self.format_package_name(name, allowed:, color:, unsafe: false)
       return name unless color
 
-      color_code = allowed ? PASTEL_GREEN : PASTEL_RED
+      color_code = if unsafe
+        PASTEL_YELLOW
+      else
+        allowed ? PASTEL_GREEN : PASTEL_RED
+      end
       "#{color_code}#{name}#{RESET}"
     end
   end

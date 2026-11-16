@@ -43,6 +43,23 @@ class ArgParserTest < Minitest::Test
     assert_match(/ambiguous/, error.message)
   end
 
+  def test_unsafe_is_wrapper_only_and_never_kept_in_brew_flags
+    parsed = HomebrewAgeGate::ArgParser.new.parse(["upgrade", "--unsafe", "--no-ask", "gh", "uv"])
+
+    assert parsed.unsafe?
+    assert_equal ["--no-ask"], parsed.flags
+    assert_equal ["gh", "uv"], parsed.names
+    refute_includes parsed.outdated_flags, "--unsafe"
+  end
+
+  def test_unsafe_without_package_names_fails_closed
+    error = assert_raises(HomebrewAgeGate::ArgParseError) do
+      HomebrewAgeGate::ArgParser.new.parse(["upgrade", "--unsafe"])
+    end
+
+    assert_match(/--unsafe requires explicit package names/, error.message)
+  end
+
   def test_dry_run_is_removed_from_final_flags
     parsed = HomebrewAgeGate::ArgParser.new.parse(["upgrade", "--dry-run", "--no-ask", "jq"])
 

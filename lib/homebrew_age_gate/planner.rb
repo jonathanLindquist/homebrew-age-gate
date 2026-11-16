@@ -3,9 +3,15 @@
 require "json"
 
 module HomebrewAgeGate
-  Decision = Struct.new(:package, :allowed, :reason, :age_result, keyword_init: true) do
+  Decision = Struct.new(:package, :allowed, :reason, :age_result, :unsafe, keyword_init: true) do
     def allowed?
       allowed
+    end
+
+    # True when this package is allowed only because the user bypassed the
+    # age gate with --unsafe.
+    def unsafe?
+      unsafe == true
     end
   end
 
@@ -21,9 +27,15 @@ module HomebrewAgeGate
     def allowed_packages
       allowed.map(&:package)
     end
+
+    def unsafe_approved
+      allowed.select(&:unsafe?)
+    end
   end
 
   class Planner
+    UNSAFE_REASON = "too new; age gate bypassed by --unsafe"
+
     def initialize(config:, runner:, now: Time.now)
       @config = config
       @runner = runner
@@ -35,17 +47,19 @@ module HomebrewAgeGate
       parsed = @arg_parser.parse(argv)
       candidates = outdated_candidates(parsed)
       packages = fetch_packages(candidates)
-      decisions = packages.map { |package| decide(package) }
+      decisions = packages.map { |package| decide(package, unsafe_bypass: parsed.unsafe_root?(package)) }
       Plan.new(parsed_args: parsed, decisions: decisions)
     end
 
-    def validate_planned_names(parsed_args, names, type: nil)
+    # unsafe_bypass: true when every root in the dry-run batch is an --unsafe
+    # root, so too-new packages pulled into its frozen plan are bypassed too.
+    def validate_planned_names(parsed_args, names, type: nil, unsafe_bypass: false)
       packages = fetch_packages_from_names(names, type: type)
       missing = names.reject do |name|
         packages.any? { |package| package.name == name || package.canonical_name == name }
       end
 
-      decisions = packages.map { |package| decide(package) }
+      decisions = packages.map { |package| decide(package, unsafe_bypass: unsafe_bypass) }
       missing.each do |name|
         package = Package.new(
           type: :formula,
@@ -145,7 +159,7 @@ module HomebrewAgeGate
       formulae + casks
     end
 
-    def decide(package)
+    def decide(package, unsafe_bypass: false)
       if package.auto_updates_cask? && !config.allow_auto_updates_cask?(package)
         return Decision.new(package: package, allowed: false, reason: "cask auto_updates true", age_result: nil)
       end
@@ -164,6 +178,8 @@ module HomebrewAgeGate
       min_age_seconds = config.min_age_days * 86_400
       if age.age_seconds > min_age_seconds
         Decision.new(package: package, allowed: true, reason: "old enough", age_result: age)
+      elsif unsafe_bypass
+        Decision.new(package: package, allowed: true, reason: UNSAFE_REASON, age_result: age, unsafe: true)
       else
         Decision.new(package: package, allowed: false, reason: "too new", age_result: age)
       end

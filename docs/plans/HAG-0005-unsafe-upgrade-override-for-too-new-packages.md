@@ -69,3 +69,7 @@ rbenv exec bundle exec rake test
 ## Outcome
 
 Fill in when completed with implementation summary, commits, verification commands, and results. Move the Kanban card to Completed only after this is filled in and applicable TODO, Acceptance Criteria, and Verification boxes are checked.
+
+## Progress Notes
+
+- 2026-11-16: Started implementation of wrapper-only brew upgrade --unsafe <names...>.

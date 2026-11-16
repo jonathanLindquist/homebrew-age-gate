@@ -91,6 +91,50 @@ class PlannerTest < Minitest::Test
     end
   end
 
+  def test_unsafe_bypasses_only_too_new_named_packages
+    Dir.mktmpdir do |dir|
+      tap_repo, head = create_tap_repo(
+        dir,
+        "Formula/g/gh.rb" => 3,
+        "Formula/u/uv.rb" => 2
+      )
+      fake_brew = make_fake_brew(dir)
+      log_path = File.join(dir, "brew.log")
+      scenario_path = File.join(dir, "scenario.json")
+      write_scenario(
+        scenario_path,
+        repos: { "homebrew/core" => tap_repo },
+        outdated: {
+          "formulae" => [{ "name" => "gh" }, { "name" => "uv" }, { "name" => "missing-history" }],
+          "casks" => []
+        },
+        formulae: [
+          formula_info("gh", tap: "homebrew/core", path: "Formula/g/gh.rb", head: head),
+          formula_info("uv", tap: "homebrew/core", path: "Formula/u/uv.rb", head: head),
+          formula_info("missing-history", tap: "homebrew/core", path: "Formula/m/missing-history.rb", head: head)
+        ]
+      )
+
+      config = HomebrewAgeGate::Config.load(
+        "HOME" => dir,
+        "HOMEBREW_AGE_GATE_REAL_BREW" => fake_brew
+      )
+      runner = HomebrewAgeGate::BrewRunner.new(fake_brew)
+      planner = HomebrewAgeGate::Planner.new(config: config, runner: runner)
+
+      with_env("FAKE_BREW_SCENARIO" => scenario_path, "FAKE_BREW_LOG" => log_path) do
+        plan = planner.initial_plan(["upgrade", "--unsafe", "gh", "missing-history"])
+
+        assert_equal ["homebrew/core/gh"], plan.unsafe_approved.map { |decision| decision.package.canonical_name }
+        assert_equal [HomebrewAgeGate::Planner::UNSAFE_REASON], plan.unsafe_approved.map(&:reason)
+
+        skipped = plan.skipped.to_h { |decision| [decision.package.canonical_name, decision.reason] }
+        assert_equal "too new", skipped.fetch("homebrew/core/uv")
+        assert_match(/\Aunknown age/, skipped.fetch("homebrew/core/missing-history"))
+      end
+    end
+  end
+
   def test_exact_min_age_boundary_is_still_too_new
     Dir.mktmpdir do |dir|
       now = Time.utc(2026, 6, 18, 12, 0, 0)

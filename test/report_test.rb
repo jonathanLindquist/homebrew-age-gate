@@ -117,6 +117,26 @@ class ReportTest < Minitest::Test
     )
   end
 
+  def test_print_unsafe_approvals_marks_bypassed_packages_in_distinct_color
+    io = StringIO.new
+    bypassed = decision(
+      "gh",
+      allowed: true,
+      reason: HomebrewAgeGate::Planner::UNSAFE_REASON,
+      age_days: 3,
+      commit_time: Time.utc(2026, 11, 12),
+      unsafe: true
+    )
+
+    HomebrewAgeGate::Report.print_unsafe_approvals([bypassed], io: io, color: true)
+
+    yellow = HomebrewAgeGate::Report::PASTEL_YELLOW
+    refute_equal GREEN, yellow
+    assert_includes io.string, "Age gate bypassed with --unsafe:\n"
+    assert_includes io.string, "#{yellow}homebrew/core/gh#{RESET}"
+    assert_includes io.string, "reason#{RESET}=too new; age gate bypassed by --unsafe"
+  end
+
   private
 
   def plan_with_allowed_and_skipped
@@ -129,11 +149,12 @@ class ReportTest < Minitest::Test
     )
   end
 
-  def decision(name, allowed:, reason:, age_days:, commit_time:)
+  def decision(name, allowed:, reason:, age_days:, commit_time:, unsafe: false)
     HomebrewAgeGate::Decision.new(
       package: package(name),
       allowed: allowed,
       reason: reason,
+      unsafe: unsafe,
       age_result: HomebrewAgeGate::AgeResult.new(
         known: true,
         commit_time: commit_time,

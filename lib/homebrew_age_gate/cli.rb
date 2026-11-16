@@ -31,7 +31,9 @@ module HomebrewAgeGate
       1
     end
 
-    def self.run_brew_wrapper(argv)
+    UNSAFE_CONFIRMATIONS = %w[y yes].freeze
+
+    def self.run_brew_wrapper(argv, input: $stdin)
       config = Config.load
       runner = BrewRunner.new(config.real_brew_path)
       planner = Planner.new(config: config, runner: runner)
@@ -58,9 +60,16 @@ module HomebrewAgeGate
         return 0
       end
 
+      Report.print_unsafe_approvals(preflight.unsafe_decisions, color: color)
+
       if parsed.dry_run?
         preflight.dry_run_outputs.each { |output| $stdout.write(output) }
         return 0
+      end
+
+      if preflight.unsafe_decisions.any? && !confirm_unsafe_upgrade?(preflight.unsafe_decisions, input)
+        warn "homebrew-age-gate: unsafe upgrade not confirmed; nothing was upgraded."
+        return 1
       end
 
       preflight.approved_batches.each do |batch|
@@ -72,6 +81,16 @@ module HomebrewAgeGate
     rescue ConfigError, ArgParseError, CommandError => e
       warn "homebrew-age-gate: #{e.message}"
       1
+    end
+
+    # One prompt covers every unsafe-approved package in the run. Anything other
+    # than an explicit yes, including EOF from a non-interactive stdin, declines.
+    def self.confirm_unsafe_upgrade?(decisions, input)
+      $stdout.flush
+      $stderr.print "homebrew-age-gate: upgrade #{decisions.length} package(s) that are too new for the age gate? [y/N] "
+      $stderr.flush
+      answer = input.gets
+      UNSAFE_CONFIRMATIONS.include?(answer.to_s.strip.downcase)
     end
 
     def self.run_brew_outdated(argv)

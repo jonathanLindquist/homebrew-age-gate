@@ -1020,5 +1020,173 @@ class WrapperIntegrationTest < Minitest::Test
     end
   end
 
+  UNSAFE_PROMPT = "[y/N]"
+
+  def test_unsafe_upgrade_bypasses_named_root_and_its_young_dependency_after_one_confirmation
+    Dir.mktmpdir do |dir|
+      fake_brew, scenario_path, log_path = unsafe_fixture(
+        dir,
+        "upgrade --formula --dry-run homebrew/core/gh" =>
+          "==> Would upgrade 2 outdated packages:\nhomebrew/core/gh 1.0 -> 2.0\nhomebrew/core/youngdep 1.0 -> 2.0\n"
+      )
+
+      stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade", "--unsafe", "gh"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path),
+        stdin_data: "yes\n"
+      )
+
+      assert status.success?, stderr
+      assert_match(%r{homebrew/core/gh age=\d+d .* reason=too new; age gate bypassed by --unsafe}, stdout)
+      assert_match(%r{Skipped:\n  homebrew/core/uv age=\d+d .* reason=too new\n}, stdout)
+      assert_match(%r{Age gate bypassed with --unsafe:\n  homebrew/core/gh .*\n  homebrew/core/youngdep .*bypassed by --unsafe}, stdout)
+      assert_equal 1, stderr.scan(UNSAFE_PROMPT).length
+      assert_match(/upgrade 2 package\(s\) that are too new/, stderr)
+
+      calls = read_log(log_path).map { |entry| entry["args"] }
+      assert_includes calls, ["upgrade", "--formula", "homebrew/core/gh"]
+      refute(calls.any? { |args| args.include?("--unsafe") }, "--unsafe reached real Homebrew")
+      refute(calls.any? { |args| args.first == "upgrade" && args.include?("homebrew/core/uv") }, "unnamed too-new package was upgraded")
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
+  def test_unsafe_upgrade_of_several_packages_prompts_once_and_upgrades_one_allowlist
+    Dir.mktmpdir do |dir|
+      fake_brew, scenario_path, log_path = unsafe_fixture(
+        dir,
+        "upgrade --formula --dry-run homebrew/core/gh homebrew/core/uv" =>
+          "==> Would upgrade 2 outdated packages:\nhomebrew/core/gh 1.0 -> 2.0\nhomebrew/core/uv 1.0 -> 2.0\n"
+      )
+
+      _stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade", "--unsafe", "gh", "uv"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path),
+        stdin_data: "y\n"
+      )
+
+      assert status.success?, stderr
+      assert_equal 1, stderr.scan(UNSAFE_PROMPT).length
+      calls = read_log(log_path).map { |entry| entry["args"] }
+      final_calls = calls.select { |args| args.first == "upgrade" && !args.include?("--dry-run") }
+      assert_equal [["upgrade", "--formula", "homebrew/core/gh", "homebrew/core/uv"]], final_calls
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
+  def test_unsafe_upgrade_without_confirmation_submits_no_final_upgrade
+    ["", "\n", "no\n"].each do |answer|
+      Dir.mktmpdir do |dir|
+        fake_brew, scenario_path, log_path = unsafe_fixture(
+          dir,
+          "upgrade --formula --dry-run homebrew/core/gh" =>
+            "==> Would upgrade 1 outdated package:\nhomebrew/core/gh 1.0 -> 2.0\n"
+        )
+
+        _stdout, stderr, status = run_bin(
+          ["bin/brew", "upgrade", "--unsafe", "gh"],
+          env: fake_env(dir, fake_brew, scenario_path, log_path),
+          stdin_data: answer
+        )
+
+        refute status.success?, "answer #{answer.inspect} should decline"
+        assert_match(/unsafe upgrade not confirmed; nothing was upgraded/, stderr)
+        calls = read_log(log_path).map { |entry| entry["args"] }
+        assert_includes calls, ["upgrade", "--formula", "--dry-run", "homebrew/core/gh"]
+        refute_includes calls, ["upgrade", "--formula", "homebrew/core/gh"]
+        assert_no_real_brew_calls!(log_path)
+      end
+    end
+  end
+
+  def test_unsafe_upgrade_still_fails_closed_on_unknown_age_dependency
+    Dir.mktmpdir do |dir|
+      fake_brew, scenario_path, log_path = unsafe_fixture(
+        dir,
+        "upgrade --formula --dry-run homebrew/core/gh" =>
+          "==> Would upgrade 2 outdated packages:\nhomebrew/core/gh 1.0 -> 2.0\nhomebrew/core/missingdep 1.0 -> 2.0\n"
+      )
+
+      _stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade", "--unsafe", "gh"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path),
+        stdin_data: "yes\n"
+      )
+
+      refute status.success?
+      assert_match(/refusing to upgrade/, stderr)
+      assert_match(%r{homebrew/core/missingdep age=unknown}, stderr)
+      refute_includes stderr, UNSAFE_PROMPT
+      refute_includes read_log(log_path).map { |entry| entry["args"] }, ["upgrade", "--formula", "homebrew/core/gh"]
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
+  def test_unsafe_dry_run_reports_bypass_without_prompt_or_final_upgrade
+    Dir.mktmpdir do |dir|
+      fake_brew, scenario_path, log_path = unsafe_fixture(
+        dir,
+        "upgrade --formula --dry-run homebrew/core/gh" =>
+          "==> Would upgrade 1 outdated package:\nhomebrew/core/gh 1.0 -> 2.0\n"
+      )
+
+      stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade", "--unsafe", "--dry-run", "gh"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path)
+      )
+
+      assert status.success?, stderr
+      assert_match(%r{Age gate bypassed with --unsafe:\n  homebrew/core/gh }, stdout)
+      assert_match(%r{Would upgrade 1 outdated package}, stdout)
+      refute_includes stderr, UNSAFE_PROMPT
+      calls = read_log(log_path).map { |entry| entry["args"] }
+      refute_includes calls, ["upgrade", "--formula", "homebrew/core/gh"]
+      assert_no_real_brew_calls!(log_path)
+    end
+  end
+
+  def test_unsafe_without_names_fails_before_any_brew_command
+    Dir.mktmpdir do |dir|
+      fake_brew, scenario_path, log_path = unsafe_fixture(dir, {})
+
+      _stdout, stderr, status = run_bin(
+        ["bin/brew", "upgrade", "--unsafe"],
+        env: fake_env(dir, fake_brew, scenario_path, log_path)
+      )
+
+      refute status.success?
+      assert_match(/--unsafe requires explicit package names/, stderr)
+      assert_empty read_log(log_path)
+    end
+  end
+
   private
+
+  # gh and uv are too new (3d and 2d), youngdep is a too-new dependency, and
+  # missingdep has no tap history. The fake `outdated` ignores names, so uv
+  # stands in for a too-new package the user did not name.
+  def unsafe_fixture(dir, dry_run_outputs)
+    tap_repo, head = create_tap_repo(
+      dir,
+      "Formula/g/gh.rb" => 3,
+      "Formula/u/uv.rb" => 2,
+      "Formula/y/youngdep.rb" => 1
+    )
+    fake_brew = make_fake_brew(dir)
+    log_path = File.join(dir, "brew.log")
+    scenario_path = File.join(dir, "scenario.json")
+    write_scenario(
+      scenario_path,
+      repos: { "homebrew/core" => tap_repo },
+      outdated: { "formulae" => [{ "name" => "gh" }, { "name" => "uv" }], "casks" => [] },
+      formulae: [
+        formula_info("gh", tap: "homebrew/core", path: "Formula/g/gh.rb", head: head),
+        formula_info("uv", tap: "homebrew/core", path: "Formula/u/uv.rb", head: head),
+        formula_info("youngdep", tap: "homebrew/core", path: "Formula/y/youngdep.rb", head: head),
+        formula_info("missingdep", tap: "homebrew/core", path: "Formula/m/missingdep.rb", head: head)
+      ],
+      dry_run_outputs: dry_run_outputs
+    )
+    [fake_brew, scenario_path, log_path]
+  end
 end

@@ -6,15 +6,27 @@ module HomebrewAgeGate
   class ParsedUpgradeArgs
     attr_reader :flags, :names, :outdated_flags, :dry_run
 
-    def initialize(flags:, names:, outdated_flags:, dry_run:)
+    def initialize(flags:, names:, outdated_flags:, dry_run:, unsafe: false)
       @flags = flags
       @names = names
       @outdated_flags = outdated_flags
       @dry_run = dry_run
+      @unsafe = unsafe
     end
 
     def dry_run?
       @dry_run
+    end
+
+    # True when the wrapper-only --unsafe flag asks to bypass the age gate for
+    # the explicitly named packages. The flag is never kept in #flags, so it is
+    # never passed to real Homebrew.
+    def unsafe?
+      @unsafe
+    end
+
+    def unsafe_root?(package)
+      unsafe? && NameSet.new(names).include_package?(package)
     end
 
     def flags_without_dry_run
@@ -23,6 +35,8 @@ module HomebrewAgeGate
   end
 
   class ArgParser
+    UNSAFE_FLAG = "--unsafe"
+
     SWITCHES = %w[
       -d --debug --display-times -f --force -v --verbose -n --dry-run
       -y --no-ask --yes --formula --formulae -s --build-from-source
@@ -55,6 +69,7 @@ module HomebrewAgeGate
       outdated_flags = []
       names = []
       dry_run = false
+      unsafe = false
       index = 0
 
       while index < args.length
@@ -62,6 +77,9 @@ module HomebrewAgeGate
 
         if arg == "--"
           raise ArgParseError, "`--` is ambiguous for homebrew-age-gate upgrade parsing"
+        elsif arg == UNSAFE_FLAG
+          unsafe = true
+          index += 1
         elsif SWITCHES.include?(arg)
           flags << arg
           outdated_flags << arg if OUTDATED_SWITCHES.include?(arg)
@@ -84,7 +102,11 @@ module HomebrewAgeGate
         end
       end
 
-      ParsedUpgradeArgs.new(flags: flags, names: names, outdated_flags: outdated_flags, dry_run: dry_run)
+      if unsafe && names.empty?
+        raise ArgParseError, "#{UNSAFE_FLAG} requires explicit package names, for example: brew upgrade #{UNSAFE_FLAG} gh uv"
+      end
+
+      ParsedUpgradeArgs.new(flags: flags, names: names, outdated_flags: outdated_flags, dry_run: dry_run, unsafe: unsafe)
     end
 
     private

@@ -160,8 +160,8 @@ module TestHelpers
     File.readlines(path).map { |line| JSON.parse(line) }
   end
 
-  def run_bin(args, env:, chdir: ROOT)
-    Open3.capture3(env, RbConfig.ruby, "-Ilib", *args, chdir: chdir)
+  def run_bin(args, env:, chdir: ROOT, stdin_data: "")
+    Open3.capture3(env, RbConfig.ruby, "-Ilib", *args, chdir: chdir, stdin_data: stdin_data)
   end
 
   def assert_no_real_brew_calls!(log_path)

@@ -205,6 +205,24 @@ brew upgrade jq
 brew upgrade --cask visual-studio-code
 ```
 
+### Bypass the age gate for named packages
+
+Use the wrapper-only `--unsafe` flag to upgrade packages that are too new:
+
+```sh
+brew upgrade --unsafe gh uv
+brew upgrade --unsafe --dry-run gh   # preview only, no prompt
+```
+
+- `--unsafe` applies only to the packages you name. Other too-new packages stay skipped.
+- Too-new dependencies that Homebrew's dry-run pulls in for those packages are also allowed.
+- The plan marks bypassed packages with `reason=too new; age gate bypassed by --unsafe` and lists them under `Age gate bypassed with --unsafe:`.
+- Before the real upgrade, the wrapper asks once: `upgrade N package(s) that are too new for the age gate? [y/N]`. Only `y` or `yes` continues. Anything else, including no input, upgrades nothing and exits 1.
+- Unknown package ages, unparseable dry-run output, and auto-updating casks still fail closed.
+- `--unsafe` with no package names is an error. The wrapper never passes `--unsafe` to real Homebrew.
+
+`-f`/`--force` is Homebrew's own upgrade flag. The wrapper passes it through to Homebrew. It does not bypass the age gate.
+
 ## Development Safety
 
 Do not run real `brew update` or real `brew upgrade` while building or testing this project. The test suite uses a fake `brew` executable and temporary git tap repositories.
